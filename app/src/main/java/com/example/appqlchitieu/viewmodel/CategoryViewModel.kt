@@ -3,33 +3,45 @@ package com.example.appqlchitieu.viewmodel
 import androidx.lifecycle.*
 import com.example.appqlchitieu.model.Category
 import com.example.appqlchitieu.repository.CategoryRepository
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-class CategoryViewModel(private val repo: CategoryRepository) : ViewModel() {
+class CategoryViewModel(
+    private val repo: CategoryRepository,
+    private val userId: Int
+) : ViewModel() {
 
-    /** Tất cả danh mục (realtime) */
-    val allCategories: LiveData<List<Category>> = repo.allCategories.asLiveData()
+    /**  Tất cả danh mục của USER hiện tại */
+    val allCategories: LiveData<List<Category>> =
+        repo.allCategories(userId).asLiveData()
 
-    /** Lọc theo loại "expense" | "income" (lọc trên Flow cho nhẹ) */
+    /**  Lọc theo loại "expense" | "income" của USER hiện tại */
     fun categoriesByType(type: String): LiveData<List<Category>> =
-        repo.allCategories.map { it.filter { c -> c.type == type } }.asLiveData()
+        repo.categoriesByType(userId, type).asLiveData()
 
     /** Thêm */
-    fun insert(category: Category) = viewModelScope.launch { repo.insert(category) }
+    fun insert(category: Category) = viewModelScope.launch {
+        repo.insert(category)
+    }
 
     /** Sửa */
-    fun update(category: Category) = viewModelScope.launch { repo.update(category) }
+    fun update(category: Category) = viewModelScope.launch {
+        repo.update(category)
+    }
 
     /** Xóa */
-    fun delete(category: Category) = viewModelScope.launch { repo.delete(category) }
+    fun delete(category: Category) = viewModelScope.launch {
+        repo.delete(category)
+    }
 }
 
-class CategoryViewModelFactory(private val repo: CategoryRepository) : ViewModelProvider.Factory {
+class CategoryViewModelFactory(
+    private val repo: CategoryRepository,
+    private val userId: Int
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CategoryViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return CategoryViewModel(repo) as T
+            return CategoryViewModel(repo, userId) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
