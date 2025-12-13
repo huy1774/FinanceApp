@@ -35,6 +35,10 @@ import com.example.app.data.datastore.UserDataStore
 import com.example.appqlchitieu.R
 import com.example.appqlchitieu.database.DatabaseProvider
 import com.example.appqlchitieu.navigation.AuthNavigation
+import com.example.appqlchitieu.repository.AIChatRepository
+import com.example.appqlchitieu.repository.BudgetRepository
+import com.example.appqlchitieu.repository.CategoryRepository
+import com.example.appqlchitieu.repository.ExpenseRepository
 import com.example.appqlchitieu.repository.UserRepository
 import com.example.appqlchitieu.repository.WalletRepository
 import com.example.appqlchitieu.utils.SessionManager
@@ -52,49 +56,103 @@ private enum class OverlayScreen { WALLET, CATEGORY }
 private val BOTTOM_BAR_HEIGHT = 63.dp
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
 
+            /* ================= CONTEXT ================= */
             val context = this
             val navController = rememberNavController()
 
-            // SessionManager
-            val session = remember { SessionManager(context) }
+            /* ================= SESSION ================= */
+            val sessionManager = remember { SessionManager(context) }
+            val userSession = remember { UserSession(sessionManager) }
 
-            // DataStore
-            val dataStore = UserDataStore(applicationContext)
-
-            // DB + UserRepo
+            /* ================= DATABASE ================= */
             val db = DatabaseProvider.getDatabase(context)
-            val userRepo = UserRepository(db.userDao())
 
-            // UserViewModel
+            /* ================= USER ================= */
+            val dataStore = UserDataStore(applicationContext)
+            val userRepo = UserRepository(db.userDao())
             val userVM: UserViewModel = viewModel(
-                factory = UserViewModelFactory(userRepo, dataStore, session)
+                factory = UserViewModelFactory(userRepo, dataStore, sessionManager)
             )
+
+            /* ================= AI CHAT ================= */
+            val aiChatVM: AIChatViewModel = viewModel(
+                factory = AIChatViewModelFactory(
+                    chatRepo = AIChatRepository(db.aiChatDao()),
+                    walletRepo = WalletRepository(db.walletDao()),
+                    expenseRepo = ExpenseRepository(db.expenseDao()),
+                    categoryRepo = CategoryRepository(db.categoryDao()),
+                    budgetRepo = BudgetRepository(db.budgetDao())
+                )
+            )
+
+            /* ================= LOGIN STATE ================= */
+            var isLoggedIn by remember {
+                mutableStateOf(sessionManager.isLoggedIn())
+            }
+
+            LaunchedEffect(Unit) {
+                isLoggedIn = sessionManager.isLoggedIn()
+            }
+
+            /* ================= AI CHAT STATE ================= */
+            var showAIChat by remember { mutableStateOf(false) }
+
+            /* ================= USER ID ================= */
+            val userId = if (isLoggedIn) userSession.userIdOrNull() else null
 
             AppQLChiTieuTheme {
 
-                NavHost(
-                    navController = navController,
-                    startDestination = if (session.isLoggedIn()) "home" else "login"
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
 
-                    /** LOGIN / REGISTER FLOW */
-                    AuthNavigation(
-                        nav = navController,
-                        vm = userVM,
-                        sessionManager = session
-                    )
+                    /* ================= NAVIGATION ================= */
+                    NavHost(
+                        navController = navController,
+                        startDestination = if (isLoggedIn) "home" else "login"
+                    ) {
 
-                    composable("home") {
-                        MainMenuScreen(
-                            userViewModel = userVM,
-                            navController = navController
+                        AuthNavigation(
+                            nav = navController,
+                            vm = userVM,
+                            sessionManager = sessionManager,
+                            onLoginSuccess = {
+                                isLoggedIn = true
+                            }
                         )
+
+                        composable("home") {
+                            MainMenuScreen(
+                                userViewModel = userVM,
+                                navController = navController,
+                                onLogoutSuccess = {
+                                    sessionManager.logout()
+                                    isLoggedIn = false
+                                    showAIChat = false
+                                }
+                            )
+                        }
+                    }
+
+                    /* ================= CHAT BUBBLE ================= */
+                    if (isLoggedIn && userId != null) {
+
+                        ChatBubble(
+                            onClick = { showAIChat = true }
+                        )
+
+                        if (showAIChat) {
+                            AIChatScreen(
+                                viewModel = aiChatVM,
+                                userId = userId,
+                                onClose = { showAIChat = false }
+                            )
+                        }
                     }
                 }
             }
@@ -103,21 +161,23 @@ class MainActivity : ComponentActivity() {
 }
 
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(
     userViewModel: UserViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    onLogoutSuccess: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     val context = LocalContext.current
 
-// Lấy userId từ session
+    /* ================= SESSION ================= */
     val sessionManager = remember { SessionManager(context) }
     val userSession = remember { UserSession(sessionManager) }
     val userId = userSession.userIdOrNull()
 
-// Chặn khi chưa đăng nhập
+    /* ================= CHƯA LOGIN ================= */
     if (userId == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Bạn chưa đăng nhập")
@@ -125,13 +185,15 @@ fun MainMenuScreen(
         return
     }
 
-// Wallet VM theo user
+    /* ================= WALLET ================= */
     val db = remember(context) { DatabaseProvider.getDatabase(context) }
     val walletRepo = remember { WalletRepository(db.walletDao()) }
-    val walletVM: WalletViewModel = viewModel(factory = WalletViewModelFactory(walletRepo, userId))
+    val walletVM: WalletViewModel = viewModel(
+        factory = WalletViewModelFactory(walletRepo, userId)
+    )
     val totalBalance by walletVM.totalBalance.observeAsState(0.0)
 
-
+    /* ================= UI STATE ================= */
     var tranSub by rememberSaveable { mutableStateOf(TransactionSubScreen.LIST) }
     var editId by rememberSaveable { mutableStateOf(-1) }
     var overlay by rememberSaveable { mutableStateOf<OverlayScreen?>(null) }
@@ -149,76 +211,74 @@ fun MainMenuScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Quản lý chi tiêu", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Quản lý chi tiêu",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge
+                )
             }
         },
 
-        floatingActionButton = {},
-
         bottomBar = {
-            Box(Modifier.fillMaxWidth()) {
-
-                // Navigation Bar
-                Surface(
-                    tonalElevation = 6.dp,
-                    shadowElevation = 12.dp,
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                    color = Color.White,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
+            Surface(
+                tonalElevation = 6.dp,
+                shadowElevation = 12.dp,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = Color.White
+            ) {
+                NavigationBar(
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.height(BOTTOM_BAR_HEIGHT)
                 ) {
-                    NavigationBar(
-                        containerColor = Color.Transparent,
-                        modifier = Modifier.height(BOTTOM_BAR_HEIGHT)
-                    ) {
-                        BottomItem(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            iconRes = R.drawable.ic_home,
-                            label = "Tổng quan",
-                            selectedColor = Color(0xFF512DA8)
-                        )
-                        BottomItem(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1; tranSub = TransactionSubScreen.LIST },
-                            iconRes = R.drawable.ic_list,
-                            label = "Giao dịch",
-                            selectedColor = Color(0xFF1976D2)
-                        )
-                        NavigationBarItem(
-                            selected = (selectedTab == 1 && tranSub == TransactionSubScreen.ADD),
-                            onClick = { selectedTab = 1; tranSub = TransactionSubScreen.ADD },
-                            icon = {
-                                Box(
-                                    Modifier
-                                        .size(44.dp)
-                                        .background(Color(0xFF388E3C), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painterResource(R.drawable.ic_add),
-                                        null,
-                                        tint = Color.White
-                                    )
-                                }
+                    BottomItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        iconRes = R.drawable.ic_home,
+                        label = "Tổng quan",
+                        selectedColor = Color(0xFF512DA8)
+                    )
+                    BottomItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1; tranSub = TransactionSubScreen.LIST },
+                        iconRes = R.drawable.ic_list,
+                        label = "Giao dịch",
+                        selectedColor = Color(0xFF1976D2)
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 1 && tranSub == TransactionSubScreen.ADD,
+                        onClick = {
+                            selectedTab = 1
+                            tranSub = TransactionSubScreen.ADD
+                        },
+                        icon = {
+                            Box(
+                                Modifier
+                                    .size(44.dp)
+                                    .background(Color(0xFF388E3C), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.ic_add),
+                                    contentDescription = null,
+                                    tint = Color.White
+                                )
                             }
-                        )
-                        BottomItem(
-                            selected = selectedTab == 3,
-                            onClick = { selectedTab = 3 },
-                            iconRes = R.drawable.ic_pie_chart,
-                            label = "Ngân sách",
-                            selectedColor = Color(0xFF388E3C)
-                        )
-                        BottomItem(
-                            selected = selectedTab == 4,
-                            onClick = { selectedTab = 4 },
-                            iconRes = R.drawable.ic_account,
-                            label = "Tài khoản",
-                            selectedColor = Color(0xFFFBC02D)
-                        )
-                    }
+                        }
+                    )
+                    BottomItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
+                        iconRes = R.drawable.ic_pie_chart,
+                        label = "Ngân sách",
+                        selectedColor = Color(0xFF388E3C)
+                    )
+                    BottomItem(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        iconRes = R.drawable.ic_account,
+                        label = "Tài khoản",
+                        selectedColor = Color(0xFFFBC02D)
+                    )
                 }
             }
         },
@@ -226,93 +286,96 @@ fun MainMenuScreen(
         containerColor = Color.Transparent
     ) { innerPadding ->
 
-        // nền chung
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))
+                    )
+                )
+                .padding(
+                    start = innerPadding.calculateStartPadding(LayoutDirection.Ltr),
+                    end = innerPadding.calculateEndPadding(LayoutDirection.Ltr),
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = BOTTOM_BAR_HEIGHT
+                )
         ) {
 
-            val bottomGap = BOTTOM_BAR_HEIGHT
+            when (overlay) {
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        start = innerPadding.calculateStartPadding(LayoutDirection.Ltr),
-                        end = innerPadding.calculateEndPadding(LayoutDirection.Ltr),
-                        top = innerPadding.calculateTopPadding(),
-                        bottom = bottomGap
+                OverlayScreen.WALLET ->
+                    WalletScreen(onBack = { overlay = null })
+
+                OverlayScreen.CATEGORY ->
+                    CategoryManageScreen(onBack = { overlay = null })
+
+                null -> when (selectedTab) {
+
+                    0 -> OverviewScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onNavigateToWallet = { overlay = OverlayScreen.WALLET },
+                        onNavigateToCategory = { overlay = OverlayScreen.CATEGORY },
+                        totalBalance = totalBalance
                     )
-            ) {
-                when (overlay) {
-                    OverlayScreen.WALLET ->
-                        WalletScreen(onBack = { overlay = null })
 
-                    OverlayScreen.CATEGORY ->
-                        CategoryManageScreen(onBack = { overlay = null })
+                    1 -> when (tranSub) {
 
-                    null ->
-                        when (selectedTab) {
-
-                            0 -> OverviewScreen(
-                                modifier = Modifier.fillMaxSize(),
-                                onNavigateToWallet = { overlay = OverlayScreen.WALLET },
-                                onNavigateToCategory = { overlay = OverlayScreen.CATEGORY },
-                                totalBalance = totalBalance
-                            )
-
-                            1 ->
-                                when (tranSub) {
-                                    TransactionSubScreen.LIST ->
-                                        TransactionScreen(
-                                            onAddClick = { tranSub = TransactionSubScreen.ADD },
-                                            onEdit = { id -> editId = id; tranSub = TransactionSubScreen.UPDATE }
-                                        )
-
-                                    TransactionSubScreen.ADD ->
-                                        TransactionAddScreen(
-                                            onSaved = { tranSub = TransactionSubScreen.LIST },
-                                            onBack = { tranSub = TransactionSubScreen.LIST },
-                                            onManageCategory = { tranSub = TransactionSubScreen.CATEGORY },
-                                            onManageWallet = { tranSub = TransactionSubScreen.WALLET }
-                                        )
-
-                                    TransactionSubScreen.UPDATE ->
-                                        TransactionUpdateScreen(
-                                            expenseId = editId,
-                                            onBack = { tranSub = TransactionSubScreen.LIST },
-                                            onSaved = { tranSub = TransactionSubScreen.LIST }
-                                        )
-
-                                    TransactionSubScreen.CATEGORY ->
-                                        CategoryManageScreen(onBack = { tranSub = TransactionSubScreen.ADD })
-
-                                    TransactionSubScreen.WALLET ->
-                                        WalletScreen(onBack = { tranSub = TransactionSubScreen.ADD })
-                                }
-
-                            3 -> BudgetScreen()
-
-                            4 -> AccountScreen(
-                                userViewModel = userViewModel,
-                                onLogout = {
-                                    // chắc chắn clear session
-                                    sessionManager.logout()
-
-                                    navController.navigate("login") {
-                                        popUpTo("home") { inclusive = true }
-                                        launchSingleTop = true
-                                    }
+                        TransactionSubScreen.LIST ->
+                            TransactionScreen(
+                                onAddClick = { tranSub = TransactionSubScreen.ADD },
+                                onEdit = { id ->
+                                    editId = id
+                                    tranSub = TransactionSubScreen.UPDATE
                                 }
                             )
 
+                        TransactionSubScreen.ADD ->
+                            TransactionAddScreen(
+                                onSaved = { tranSub = TransactionSubScreen.LIST },
+                                onBack = { tranSub = TransactionSubScreen.LIST },
+                                onManageCategory = { tranSub = TransactionSubScreen.CATEGORY },
+                                onManageWallet = { tranSub = TransactionSubScreen.WALLET }
+                            )
+
+                        TransactionSubScreen.UPDATE ->
+                            TransactionUpdateScreen(
+                                expenseId = editId,
+                                onBack = { tranSub = TransactionSubScreen.LIST },
+                                onSaved = { tranSub = TransactionSubScreen.LIST }
+                            )
+
+                        TransactionSubScreen.CATEGORY ->
+                            CategoryManageScreen(
+                                onBack = { tranSub = TransactionSubScreen.ADD }
+                            )
+
+                        TransactionSubScreen.WALLET ->
+                            WalletScreen(
+                                onBack = { tranSub = TransactionSubScreen.ADD }
+                            )
+                    }
+
+                    3 -> BudgetScreen()
+
+                    4 -> AccountScreen(
+                        userViewModel = userViewModel,
+                        onLogout = {
+                            sessionManager.logout()
+                            onLogoutSuccess()     // 🔥 BÁO VỀ MAINACTIVITY
+
+                            navController.navigate("login") {
+                                popUpTo("home") { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
+                    )
                 }
             }
         }
     }
 }
+
 
 
 @Composable

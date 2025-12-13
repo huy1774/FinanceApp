@@ -10,7 +10,7 @@ import org.json.JSONObject
 
 object GeminiApi {
 
-    private const val API_KEY = "AIzaSyD-XdrcaT-8i4OTHzXJHrz_j_Ve2yZpLgc"
+    private const val API_KEY = "AIzaSyDtKlKkoEmHxVhcWKAVa94c5szGMwauEOo"
     private val client = OkHttpClient()
 
     suspend fun ask(prompt: String): String = withContext(Dispatchers.IO) {
@@ -48,7 +48,7 @@ object GeminiApi {
                 .getJSONObject(0)
                 .getString("text")
         } catch (e: Exception) {
-            "❌ API Error: $responseBody"
+            "API Error: $responseBody"
         }
     }
 

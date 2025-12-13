@@ -70,6 +70,9 @@ dependencies {
     // HTTP client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(libs.generativeai)
+    implementation(libs.androidx.compose.ui.unit)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.foundation)
 
     // ROOM
     val room_version = "2.6.1"
