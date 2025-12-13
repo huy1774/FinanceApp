@@ -54,9 +54,20 @@ fun OverviewScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Tổng số dư", style = MaterialTheme.typography.titleMedium, color = Color(0xFF757575))
-                    Spacer(Modifier.height(8.dp))
-                    Text("${nf.format(totalBalance)}₫", style = MaterialTheme.typography.headlineLarge, color = Color(0xFF512DA8))
+                    Text(
+                        text = "Tổng số dư",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF757575),
+                        maxLines = 1
+                    )
+
+                    Text(
+                        text = "${nf.format(totalBalance)}₫",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color(0xFF512DA8),
+                        maxLines = 1
+                    )
+
                 }
             }
 
@@ -75,7 +86,11 @@ fun OverviewScreen(
 }
 
 @Composable
-fun FeatureCard(title: String, icon: Painter, onClick: () -> Unit) {
+fun FeatureCard(
+    title: String,
+    icon: Painter,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -85,13 +100,30 @@ fun FeatureCard(title: String, icon: Painter, onClick: () -> Unit) {
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(painter = icon, contentDescription = title, modifier = Modifier.size(40.dp), tint = Color(0xFF1976D2))
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically //
+        ) {
+            Icon(
+                painter = icon,
+                contentDescription = title,
+                modifier = Modifier.size(36.dp),
+                tint = Color(0xFF1976D2)
+            )
+
             Spacer(Modifier.width(20.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, color = Color(0xFF212121))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFF212121),
+                maxLines = 1 //
+            )
         }
     }
 }
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

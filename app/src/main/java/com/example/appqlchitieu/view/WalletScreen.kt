@@ -161,14 +161,19 @@ fun WalletScreen(onBack: (() -> Unit)? = null) {
             title = "Thêm ví",
             initName = "",
             initBalance = "",
+            existingWallets = wallets,
+            editingWalletId = null,
             onDismiss = { showAdd = false },
             onConfirm = { name, balance ->
                 scope.launch {
-                    db.walletDao().insertWallet(Wallet(userId = userId, name = name, balance = balance))
+                    db.walletDao().insertWallet(
+                        Wallet(userId = userId, name = name, balance = balance)
+                    )
                 }
                 showAdd = false
             }
         )
+
     }
 
     editTarget?.let { w ->
@@ -176,12 +181,19 @@ fun WalletScreen(onBack: (() -> Unit)? = null) {
             title = "Sửa ví",
             initName = w.name,
             initBalance = w.balance.toString(),
+            existingWallets = wallets,
+            editingWalletId = w.id,
             onDismiss = { editTarget = null },
             onConfirm = { name, balance ->
-                scope.launch { db.walletDao().updateWallet(w.copy(name = name, balance = balance)) }
+                scope.launch {
+                    db.walletDao().updateWallet(
+                        w.copy(name = name, balance = balance)
+                    )
+                }
                 editTarget = null
             }
         )
+
     }
 
     deleteTarget?.let { w ->
@@ -229,6 +241,8 @@ private fun WalletEditDialog(
     title: String,
     initName: String,
     initBalance: String,
+    existingWallets: List<Wallet>,
+    editingWalletId: Int? = null,
     onDismiss: () -> Unit,
     onConfirm: (String, Double) -> Unit
 ) {
@@ -241,24 +255,62 @@ private fun WalletEditDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Tên ví") })
-                OutlinedTextField(value = balanceText, onValueChange = { balanceText = it }, label = { Text("Số dư ban đầu") })
-                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Tên ví") },
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = balanceText,
+                    onValueChange = { balanceText = it },
+                    label = { Text("Số dư ban đầu") },
+                    singleLine = true
+                )
+
+                error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    val bal = balanceText.toDoubleOrNull()
-                    if (name.isBlank()) { error = "Tên ví không được trống"; return@TextButton }
-                    if (bal == null) { error = "Số dư không hợp lệ"; return@TextButton }
-                    onConfirm(name.trim(), bal)
+            TextButton(onClick = {
+                val trimmedName = name.trim()
+                val bal = balanceText.toDoubleOrNull()
+
+                when {
+                    trimmedName.isEmpty() -> {
+                        error = "Tên ví không được trống"
+                        return@TextButton
+                    }
+
+                    existingWallets.any {
+                        it.id != editingWalletId &&
+                                it.name.equals(trimmedName, ignoreCase = true)
+                    } -> {
+                        error = "Đã có ví này"
+                        return@TextButton
+                    }
+
+                    bal == null -> {
+                        error = "Số dư không hợp lệ"
+                        return@TextButton
+                    }
                 }
-            ) { Text("Lưu") }
+
+                onConfirm(trimmedName, bal)
+            }) {
+                Text("Lưu")
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy") }
+        }
     )
 }
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

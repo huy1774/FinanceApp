@@ -1,5 +1,6 @@
 package com.example.appqlchitieu.ui.auth
 
+import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import com.example.appqlchitieu.model.User
 import com.example.appqlchitieu.viewmodel.UserViewModel
@@ -29,7 +29,7 @@ fun RegisterScreen(
     nav: NavHostController,
     vm: UserViewModel,
     onLoginClick: () -> Unit,
-    onRegisterSuccess: (String) -> Unit // email để chuyển sang Verify
+    onRegisterSuccess: (String) -> Unit
 ) {
 
     var name by remember { mutableStateOf("") }
@@ -82,12 +82,12 @@ fun RegisterScreen(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text("Họ và tên") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Person, null) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 15.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
 
                     // EMAIL
@@ -95,20 +95,20 @@ fun RegisterScreen(
                         value = email,
                         onValueChange = { email = it },
                         label = { Text("Email") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Email, null) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 15.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
 
-                    // PASS
+                    // PASSWORD
                     OutlinedTextField(
                         value = pass,
                         onValueChange = { pass = it },
                         label = { Text("Mật khẩu") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 15.dp),
@@ -117,12 +117,12 @@ fun RegisterScreen(
                         visualTransformation = PasswordVisualTransformation()
                     )
 
-                    // CONFIRM PASS
+                    // CONFIRM PASSWORD
                     OutlinedTextField(
                         value = confirm,
                         onValueChange = { confirm = it },
                         label = { Text("Nhập lại mật khẩu") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 25.dp),
@@ -133,14 +133,57 @@ fun RegisterScreen(
 
                     Button(
                         onClick = {
-                            if(pass != confirm){
-                                Toast.makeText(context,"Mật khẩu không trùng khớp!",Toast.LENGTH_SHORT).show()
+
+                            // ===== VALIDATION =====
+
+                            if (name.isBlank()) {
+                                Toast.makeText(context, "Tên không được để trống!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            val newUser = User(name = name, email = email, phone = phone, password = pass)
-                            vm.register(newUser){ success ->
-                                if(success){
-                                    Toast.makeText(context,"Đang gửi mã OTP",Toast.LENGTH_SHORT).show()
+
+                            if (email.isBlank()) {
+                                Toast.makeText(context, "Email không được để trống!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                                Toast.makeText(context, "Email không đúng định dạng!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (pass.isBlank()) {
+                                Toast.makeText(context, "Mật khẩu không được để trống!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (confirm.isBlank()) {
+                                Toast.makeText(context, "Vui lòng nhập lại mật khẩu!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+
+                            if (pass.length < 6) {
+                                Toast.makeText(context, "Mật khẩu phải ≥ 6 ký tự!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (pass != confirm) {
+                                Toast.makeText(context, "Mật khẩu không trùng khớp!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            // ===== REGISTER =====
+
+                            val newUser = User(
+                                name = name.trim(),
+                                email = email.trim(),
+                                phone = phone.trim(),
+                                password = pass
+                            )
+
+                            vm.register(newUser) { success ->
+                                if (success) {
+                                    Toast.makeText(context, "Đang gửi mã OTP...", Toast.LENGTH_SHORT).show()
                                     vm.generateOtp(email) { sent ->
                                         if (sent) {
                                             nav.navigate("verify/$email")
@@ -148,8 +191,8 @@ fun RegisterScreen(
                                             Toast.makeText(context, "Không gửi được OTP!", Toast.LENGTH_SHORT).show()
                                         }
                                     }
-                                }else{
-                                    Toast.makeText(context,"Email đã tồn tại!",Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Email đã tồn tại!", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },

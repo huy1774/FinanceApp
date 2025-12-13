@@ -77,18 +77,11 @@ fun AccountScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        AccountOption(
-            icon = painterResource(id = R.drawable.ic_ai),
-            title = "AI Supporter"
-        ) {
-            context.startActivity(Intent(context, AIChatActivity::class.java))
-        }
 
         AccountOption(Icons.Default.Settings, "Ngôn ngữ") {}
         AccountOption(Icons.Default.Notifications, "Thông báo") {}
 
         Spacer(Modifier.height(20.dp))
-
         Button(
             onClick = { showDialog = true },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
@@ -152,35 +145,3 @@ private fun AccountOption(
         }
     }
 }
-
-@Composable
-private fun AccountOption(
-    icon: Painter,
-    title: String,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        onClick = onClick
-    ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = null,
-                tint = Color(0xFF388E3C)   // giữ nguyên màu xanh như nút cũ
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(title)
-        }
-    }
-}
-
-
-
