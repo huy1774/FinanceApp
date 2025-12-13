@@ -3,10 +3,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    // ✅ dùng version thật cho plugin serialization
+    // dùng version thật cho plugin serialization
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24"
 
-    // ✅ dùng id đầy đủ cho kapt (ổn định hơn)
+    // dùng id đầy đủ cho kapt (ổn định hơn)
     id("org.jetbrains.kotlin.kapt")
 }
 
@@ -55,6 +55,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
     implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.compose.foundation)
     implementation("androidx.navigation:navigation-compose:2.7.7")
@@ -64,7 +65,7 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // 🔑 JSON (cho LLM tools)
+    // JSON (cho LLM tools)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
     // HTTP client

@@ -1,4 +1,3 @@
-
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.example.appqlchitieu.view
@@ -20,29 +19,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.appqlchitieu.database.DatabaseProvider
 import com.example.appqlchitieu.model.Budget
 import com.example.appqlchitieu.model.Category
-import com.example.appqlchitieu.view.ui.theme.AppQLChiTieuTheme
+import com.example.appqlchitieu.utils.SessionManager
+import com.example.appqlchitieu.utils.UserSession
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
-import com.example.appqlchitieu.utils.SessionManager
-import com.example.appqlchitieu.utils.UserSession
-
-/** Nếu app 1 user thì để mặc định 1; sau này truyền userId thực vào. */
 
 @Composable
-fun BudgetScreen(onBack: (() -> Unit)? = null) { // giữ signature cũ nhưng KHÔNG dùng back
+fun BudgetScreen(onBack: (() -> Unit)? = null) {
+
     val context = LocalContext.current
     val db = remember { DatabaseProvider.getDatabase(context) }
     val scope = rememberCoroutineScope()
-    val sessionManager = remember { SessionManager(context) }
-    val userSession = remember { UserSession(sessionManager) }
+
+    val userSession = remember { UserSession(SessionManager(context)) }
     val userId = userSession.userIdOrNull()
 
     if (userId == null) {
@@ -55,28 +51,28 @@ fun BudgetScreen(onBack: (() -> Unit)? = null) { // giữ signature cũ nhưng K
     val nf = remember { NumberFormat.getInstance(Locale("vi", "VN")) }
     val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
-    // Dữ liệu DB
-    val budgets by db.budgetDao().getAllBudgets(userId).collectAsState(initial = emptyList())
-    val categories by db.categoryDao().getAllCategories(userId).collectAsState(initial = emptyList())
+    val budgets by db.budgetDao().getAllBudgets(userId).collectAsState(emptyList())
+    val categories by db.categoryDao().getAllCategories(userId).collectAsState(emptyList())
 
-
-    // Lấy expense trong 1 năm quanh hiện tại để tính nhanh
     val yearMillis = 366L * 24 * 60 * 60 * 1000
     val now = System.currentTimeMillis()
     val expenses by db.expenseDao()
         .getExpensesByDateRange(userId, now - yearMillis, now + yearMillis)
-        .collectAsState(initial = emptyList())
+        .collectAsState(emptyList())
 
     var showAdd by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<Budget?>(null) }
     var deleteTarget by remember { mutableStateOf<Budget?>(null) }
     val snackbar = remember { SnackbarHostState() }
 
-    // Nền gradient (khớp các màn khác)
     Box(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))
+                )
+            )
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -89,24 +85,25 @@ fun BudgetScreen(onBack: (() -> Unit)? = null) { // giữ signature cũ nhưng K
                     .padding(inner)
                     .padding(horizontal = 16.dp)
             ) {
-                // Chỉ tiêu đề – không còn nút Back
+
                 Text(
                     text = "Ngân sách",
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color(0xFF212121),
-                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
 
                 if (budgets.isEmpty()) {
                     Box(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         contentAlignment = Alignment.Center
-                    ) { Text("Chưa có ngân sách nào", color = Color.Gray) }
+                    ) {
+                        Text("Chưa có ngân sách nào", color = Color.Gray)
+                    }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 4.dp)
+                        contentPadding = PaddingValues(bottom = 12.dp)
                     ) {
                         items(budgets, key = { it.id }) { b ->
                             val spent = remember(b, expenses) {
@@ -116,6 +113,7 @@ fun BudgetScreen(onBack: (() -> Unit)? = null) { // giữ signature cũ nhưng K
                                     .filter { it.date in b.startDate..b.endDate }
                                     .sumOf { it.amount }
                             }
+
                             BudgetCardRow(
                                 budget = b,
                                 spent = spent,
@@ -123,175 +121,139 @@ fun BudgetScreen(onBack: (() -> Unit)? = null) { // giữ signature cũ nhưng K
                                 nf = nf,
                                 sdf = sdf,
                                 onEdit = { editTarget = b },
-                                onDelete = { deleteTarget = b }
+                                onDelete = { deleteTarget = b } // ✅ CLICK ĐƯỢC
                             )
                         }
                     }
                 }
 
-                // Thẻ “Thêm ngân sách” ở cuối
+                // ✅ Button NẰM TRONG COLUMN
                 Button(
                     onClick = { showAdd = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF388E3C),
                         contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) { Text("Thêm ngân sách") }
+                    )
+                ) {
+                    Text("Thêm ngân sách")
+                }
 
                 Spacer(Modifier.height(12.dp))
             }
+
         }
     }
 
-    // Dialog thêm
+    /* ================= ADD ================= */
+
     if (showAdd) {
         BudgetEditDialog(
             title = "Thêm ngân sách",
             init = Budget(
                 userId = userId,
-                categoryId = categories.firstOrNull()?.id ?: 0,
+                categoryId = 0,
                 amountLimit = 0.0,
                 startDate = startOfToday(),
                 endDate = endOfThisMonth()
             ),
             categories = categories,
+            existingBudgets = budgets,
             onDismiss = { showAdd = false },
-            onConfirm = { newB ->
+            onConfirm = {
                 scope.launch {
-                    db.budgetDao().insertBudget(newB)
+                    db.budgetDao().insertBudget(it)
                     showAdd = false
                 }
             }
         )
+
     }
 
-    // Dialog sửa
+    /* ================= EDIT ================= */
+
     editTarget?.let { tgt ->
         BudgetEditDialog(
             title = "Sửa ngân sách",
             init = tgt,
             categories = categories,
+            existingBudgets = budgets,
             onDismiss = { editTarget = null },
-            onConfirm = { up ->
+            onConfirm = {
                 scope.launch {
-                    db.budgetDao().updateBudget(up.copy(id = tgt.id))
+                    db.budgetDao().updateBudget(it.copy(id = tgt.id))
                     editTarget = null
                 }
             }
         )
     }
+    /* ================= DELETE ================= */
 
-    // Xác nhận xoá
     deleteTarget?.let { tgt ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("Xoá ngân sách") },
-            text = { Text("Xoá ngân sách cho danh mục này?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        db.budgetDao().deleteBudget(tgt)
-                        deleteTarget = null
-                        snackbar.showSnackbar("Đã xoá ngân sách")
-                    }
-                }) { Text("Xoá") }
+            text = {
+                Text("Bạn có chắc muốn xoá ngân sách cho danh mục này?")
             },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Hủy") } }
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            db.budgetDao().deleteBudget(tgt)
+                            deleteTarget = null
+                            snackbar.showSnackbar("Đã xoá ngân sách")
+                        }
+                    }
+                ) {
+                    Text("Xoá", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("Huỷ")
+                }
+            }
         )
     }
+
 }
 
-/* ---------- UI items ---------- */
 
-@Composable
-private fun BudgetCardRow(
-    budget: Budget,
-    spent: Double,
-    category: Category?,
-    nf: NumberFormat,
-    sdf: SimpleDateFormat,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val limit = budget.amountLimit.coerceAtLeast(1.0)
-    val ratio = (spent / limit).toFloat().coerceIn(0f, 1f)
-    val barColor = when {
-        ratio >= 1f   -> Color(0xFFE53935)
-        ratio >= 0.8f -> Color(0xFFFFA000)
-        else          -> Color(0xFF43A047)
-    }
-
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        category?.name ?: "Danh mục #${budget.categoryId}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        "${sdf.format(Date(budget.startDate))} - ${sdf.format(Date(budget.endDate))}",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Row {
-                    IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Sửa") }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Xoá", tint = Color(0xFFE53935))
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { ratio },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                color = barColor,
-                trackColor = Color(0xFFE0E0E0)
-            )
-
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Đã chi: ${nf.format(spent.toLong())}₫")
-                val remain = budget.amountLimit - spent
-                val remainText = if (remain >= 0) "Còn lại: " else "Vượt: "
-                Text(
-                    remainText + "${nf.format(abs(remain).toLong())}₫",
-                    color = if (remain >= 0) Color.Gray else Color(0xFFE53935)
-                )
-            }
-        }
-    }
-}
+/* ================= EDIT DIALOG ================= */
 
 @Composable
 private fun BudgetEditDialog(
     title: String,
     init: Budget,
     categories: List<Category>,
+    existingBudgets: List<Budget>,
     onDismiss: () -> Unit,
     onConfirm: (Budget) -> Unit
 ) {
     val context = LocalContext.current
+
     var catId by remember { mutableStateOf(init.categoryId) }
     var amountText by remember {
         mutableStateOf(if (init.amountLimit > 0) init.amountLimit.toLong().toString() else "")
     }
+
     var start by remember { mutableStateOf(init.startDate) }
     var end by remember { mutableStateOf(init.endDate) }
+    var dateError by remember { mutableStateOf<String?>(null) }
+
     val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+    val usedCategoryIds = remember(existingBudgets) {
+        existingBudgets.map { it.categoryId }.toSet()
+    }
+
+    val selectableCategories = categories
+        .filter { it.type == "expense" }
+        .filter { it.id == catId || it.id !in usedCategoryIds }
 
     fun showDatePicker(current: Long, onPicked: (Long) -> Unit) {
         val cal = Calendar.getInstance().apply { timeInMillis = current }
@@ -315,22 +277,22 @@ private fun BudgetEditDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Danh mục
+
                 var expanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                ExposedDropdownMenuBox(expanded, { expanded = it }) {
                     OutlinedTextField(
-                        value = categories.find { it.id == catId }?.name ?: "Chọn danh mục",
+                        value = selectableCategories.find { it.id == catId }?.name ?: "Chọn danh mục",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Danh mục") },
                         modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        categories.filter { it.type == "expense" }.forEach { c ->
+                    ExposedDropdownMenu(expanded, { expanded = false }) {
+                        selectableCategories.forEach {
                             DropdownMenuItem(
-                                text = { Text(c.name) },
+                                text = { Text(it.name) },
                                 onClick = {
-                                    catId = c.id
+                                    catId = it.id
                                     expanded = false
                                 }
                             )
@@ -340,69 +302,167 @@ private fun BudgetEditDialog(
 
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter { ch -> ch.isDigit() } },
+                    onValueChange = { amountText = it.filter(Char::isDigit) },
                     label = { Text("Hạn mức (đ)") },
                     singleLine = true
                 )
 
-                // ngày bắt đầu
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFF7F7F7), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                ) {
-                    Text("Bắt đầu: ", modifier = Modifier.width(80.dp), color = Color.Gray)
-                    TextButton(onClick = { showDatePicker(start) { start = it } }) {
-                        Text(sdf.format(Date(start)))
-                    }
+                DateRow("Bắt đầu", start, sdf) {
+                    showDatePicker(start) { start = it }
                 }
 
-                // ngày kết thúc
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFF7F7F7), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                ) {
-                    Text("Kết thúc: ", modifier = Modifier.width(80.dp), color = Color.Gray)
-                    TextButton(onClick = { showDatePicker(end) { end = it } }) {
-                        Text(sdf.format(Date(end)))
-                    }
+                DateRow("Kết thúc", end, sdf) {
+                    showDatePicker(end) { end = it }
+                }
+
+                dateError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                val limit = amountText.toDoubleOrNull() ?: 0.0
-                if (limit <= 0.0 || catId == 0) return@TextButton
-                if (start > end) return@TextButton
+                val limit = amountText.toDoubleOrNull()
+                dateError = null
+
+                if (limit == null || limit <= 0) return@TextButton
+                if (catId == 0) return@TextButton
+                if (start > end) {
+                    dateError = "Ngày bắt đầu phải trước ngày kết thúc"
+                    return@TextButton
+                }
+
                 onConfirm(
                     init.copy(
-                        userId = init.userId,
                         categoryId = catId,
                         amountLimit = limit,
                         startDate = start,
                         endDate = end
                     )
                 )
-            }) { Text("Lưu") }
+            }) {
+                Text("Lưu")
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Hủy") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy") }
+        }
     )
 }
 
-/* ---------- Helpers ---------- */
+/* ================= CARD ================= */
+
+@Composable
+private fun BudgetCardRow(
+    budget: Budget,
+    spent: Double,
+    category: Category?,
+    nf: NumberFormat,
+    sdf: SimpleDateFormat,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val limit = budget.amountLimit.coerceAtLeast(1.0)
+    val ratio = (spent / limit).toFloat().coerceIn(0f, 1f)
+
+    val barColor = when {
+        ratio >= 1f -> Color(0xFFE53935)
+        ratio >= 0.8f -> Color(0xFFFFA000)
+        else -> Color(0xFF43A047)
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        category?.name ?: "Danh mục #${budget.categoryId}",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "${sdf.format(Date(budget.startDate))} - ${sdf.format(Date(budget.endDate))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Sửa")
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Xoá", tint = Color(0xFFE53935))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            LinearProgressIndicator(
+                progress = { ratio },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                color = barColor,
+                trackColor = Color(0xFFE0E0E0)
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Đã chi: ${nf.format(spent.toLong())}₫")
+                val remain = budget.amountLimit - spent
+                Text(
+                    (if (remain >= 0) "Còn lại: " else "Vượt: ") +
+                            "${nf.format(abs(remain).toLong())}₫",
+                    color = if (remain >= 0) Color.Gray else Color(0xFFE53935)
+                )
+            }
+        }
+    }
+}
+
+/* ================= HELPERS ================= */
+
+@Composable
+private fun DateRow(
+    label: String,
+    value: Long,
+    sdf: SimpleDateFormat,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF7F7F7), RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("$label: ", Modifier.width(80.dp), color = Color.Gray)
+        TextButton(onClick = onClick) {
+            Text(sdf.format(Date(value)))
+        }
+    }
+}
+
 private fun startOfToday(): Long = Calendar.getInstance().apply {
-    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
 }.timeInMillis
 
-private fun endOfThisMonth(): Long {
-    val c = Calendar.getInstance()
-    c.set(Calendar.DAY_OF_MONTH, c.getActualMaximum(Calendar.DAY_OF_MONTH))
-    c.set(Calendar.HOUR_OF_DAY, 23); c.set(Calendar.MINUTE, 59); c.set(Calendar.SECOND, 59); c.set(Calendar.MILLISECOND, 999)
-    return c.timeInMillis
-}
+private fun endOfThisMonth(): Long = Calendar.getInstance().apply {
+    set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+    set(Calendar.HOUR_OF_DAY, 23)
+    set(Calendar.MINUTE, 59)
+    set(Calendar.SECOND, 59)
+    set(Calendar.MILLISECOND, 999)
+}.timeInMillis
+
 

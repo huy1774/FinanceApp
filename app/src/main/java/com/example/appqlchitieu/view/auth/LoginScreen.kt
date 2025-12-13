@@ -1,5 +1,6 @@
 package com.example.appqlchitieu.ui.auth
 
+import android.util.Patterns
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -24,15 +25,17 @@ import com.example.appqlchitieu.viewmodel.UserViewModel
 
 @Composable
 fun LoginScreen(
-    nav: NavHostController, // giữ để không vỡ chỗ gọi cũ (dù không dùng trực tiếp)
+    nav: NavHostController,
     vm: UserViewModel,
     sessionManager: SessionManager,
     onRegisterClick: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
+
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
 
     Box(
@@ -52,13 +55,13 @@ fun LoginScreen(
         ) {
 
             Text(
-                text = "Chào mừng trở lại!",
+                "Chào mừng trở lại!",
                 fontSize = 28.sp,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Đăng nhập để tiếp tục",
+                "Đăng nhập để tiếp tục",
                 fontSize = 16.sp,
                 color = Color.White.copy(.9f),
                 modifier = Modifier.padding(bottom = 30.dp)
@@ -72,11 +75,12 @@ fun LoginScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
 
+                    // EMAIL
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
                         label = { Text("Email") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Email, null) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 15.dp),
@@ -85,11 +89,12 @@ fun LoginScreen(
                         enabled = !loading
                     )
 
+                    // PASSWORD
                     OutlinedTextField(
                         value = pass,
                         onValueChange = { pass = it },
                         label = { Text("Mật khẩu") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 25.dp),
@@ -101,13 +106,33 @@ fun LoginScreen(
 
                     Button(
                         onClick = {
+
+                            // ===== VALIDATION =====
+
                             val e = email.trim()
                             val p = pass
 
-                            if (e.isEmpty() || p.isEmpty()) {
-                                Toast.makeText(context, "Nhập đủ email và mật khẩu đã nào 😅", Toast.LENGTH_SHORT).show()
+                            if (e.isBlank()) {
+                                Toast.makeText(context, "Email không được để trống!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
+
+                            if (!Patterns.EMAIL_ADDRESS.matcher(e).matches()) {
+                                Toast.makeText(context, "Email không đúng định dạng!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (p.isBlank()) {
+                                Toast.makeText(context, "Mật khẩu không được để trống!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            if (p.length < 6) {
+                                Toast.makeText(context, "Mật khẩu phải ≥ 6 ký tự!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            // ===== LOGIN =====
 
                             loading = true
                             vm.login(context, e, p) { success ->
@@ -116,22 +141,19 @@ fun LoginScreen(
                                 if (success) {
                                     val user = vm.currentUser.value
                                     if (user != null) {
-                                        // Lưu userId cho các màn sau đọc
                                         sessionManager.saveLogin(user.id)
-
-                                        // Điều hướng do AuthNavigation chịu trách nhiệm
                                         onLoginSuccess()
                                     } else {
                                         Toast.makeText(
                                             context,
-                                            "Login ok nhưng chưa lấy được user. Thử lại nhé.",
+                                            "lỗi hệ thống, vui lòng thử lại!",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 } else {
                                     Toast.makeText(
                                         context,
-                                        "Sai thông tin hoặc chưa xác thực email",
+                                        "Sai email / mật khẩu",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
