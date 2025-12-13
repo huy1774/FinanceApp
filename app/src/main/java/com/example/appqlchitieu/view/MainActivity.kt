@@ -97,11 +97,15 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(sessionManager.isLoggedIn())
             }
 
+            LaunchedEffect(Unit) {
+                isLoggedIn = sessionManager.isLoggedIn()
+            }
+
             /* ================= AI CHAT STATE ================= */
             var showAIChat by remember { mutableStateOf(false) }
 
-            /* ================= USER ID (KHÔNG REMEMBER ❗) ================= */
-            val userId = userSession.userIdOrNull()
+            /* ================= USER ID ================= */
+            val userId = if (isLoggedIn) userSession.userIdOrNull() else null
 
             AppQLChiTieuTheme {
 
@@ -127,6 +131,7 @@ class MainActivity : ComponentActivity() {
                                 userViewModel = userVM,
                                 navController = navController,
                                 onLogoutSuccess = {
+                                    sessionManager.logout()
                                     isLoggedIn = false
                                     showAIChat = false
                                 }

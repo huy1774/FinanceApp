@@ -13,7 +13,7 @@ interface AIChatDao {
     // Thêm một tin nhắn mới vào bảng.
     // Nếu có bản ghi trùng id thì ghi đè (REPLACE).
 
-    @Query("SELECT * FROM aichat_table WHERE userId = :userId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM aichat_table WHERE userId = :userId ORDER BY createdAt ASC")
     fun getChatsByUser(userId: Int): Flow<List<AIChat>>
     // Lấy danh sách tin nhắn của 1 người dùng, sắp xếp từ mới nhất → cũ nhất.
 

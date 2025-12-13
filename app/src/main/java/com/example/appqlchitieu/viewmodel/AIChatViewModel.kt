@@ -58,7 +58,7 @@ class AIChatViewModel(
             Câu hỏi của người dùng:
             $message
             
-            Hãy trả lời như 1 chuyên gia tài chính thực sự, chính xác và dựa hoàn toàn vào dữ liệu trên, đưa ra lời khuyên.
+            Hãy trả lời tầm 100 chữ như 1 chuyên gia tài chính thực sự, không được viết in đậm, in nghiêng,.., chính xác, chia đoạn rõ ràng, có dùng gạch đầu dòng, cộng đầu dòng và dựa hoàn toàn vào dữ liệu trên, đưa ra lời khuyên.
         """.trimIndent()
         Log.d("AI_DEBUG", "PROMPT SEND TO GEMINI:\n$prompt")
         val aiResponse = GeminiRepository.askGemini(prompt)
