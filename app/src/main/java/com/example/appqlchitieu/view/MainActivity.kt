@@ -58,14 +58,26 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
+            /* ================= CONTEXT ================= */
             val context = this
             val navController = rememberNavController()
 
+            /* ================= SESSION ================= */
             val sessionManager = remember { SessionManager(context) }
             val userSession = remember { UserSession(sessionManager) }
 
-            val db = DatabaseProvider.getDatabase(context)
+            val isLoggedIn by remember {
+                mutableStateOf(sessionManager.isLoggedIn())
+            }
 
+            val userId = remember {
+                userSession.userIdOrNull()
+            }
+
+            /* ================= DB ================= */
+            val db = remember { DatabaseProvider.getDatabase(context) }
+
+            /* ================= USER VM ================= */
             val userVM: UserViewModel = viewModel(
                 factory = UserViewModelFactory(
                     UserRepository(db.userDao()),
@@ -74,9 +86,24 @@ class MainActivity : ComponentActivity() {
                 )
             )
 
-            var isLoggedIn by remember { mutableStateOf(sessionManager.isLoggedIn()) }
+            /* ================= AI CHAT VM ================= */
+            val aiChatVM: AIChatViewModel = viewModel(
+                factory = AIChatViewModelFactory(
+                    AIChatRepository(db.aiChatDao()),
+                    WalletRepository(db.walletDao()),
+                    ExpenseRepository(db.expenseDao()),
+                    CategoryRepository(db.categoryDao()),
+                    BudgetRepository(db.budgetDao())
+                )
+            )
 
+            /* ================= CHAT STATE ================= */
+            var showAIChat by rememberSaveable { mutableStateOf(false) }
+
+            /* ================= THEME ================= */
             AppQLChiTieuTheme {
+
+                /* ============ NAVIGATION ============ */
                 NavHost(
                     navController = navController,
                     startDestination = if (isLoggedIn) "home" else "login"
@@ -86,7 +113,9 @@ class MainActivity : ComponentActivity() {
                         nav = navController,
                         vm = userVM,
                         sessionManager = sessionManager,
-                        onLoginSuccess = { isLoggedIn = true }
+                        onLoginSuccess = {
+                            showAIChat = false
+                        }
                     )
 
                     composable("home") {
@@ -95,8 +124,27 @@ class MainActivity : ComponentActivity() {
                             navController = navController,
                             onLogoutSuccess = {
                                 sessionManager.logout()
-                                isLoggedIn = false
+                                showAIChat = false
+                                navController.navigate("login") {
+                                    popUpTo("home") { inclusive = true }
+                                }
                             }
+                        )
+                    }
+                }
+
+                /* ============ CHAT BUBBLE (GLOBAL) ============ */
+                if (isLoggedIn && userId != null) {
+
+                    ChatBubble(
+                        onClick = { showAIChat = true }
+                    )
+
+                    if (showAIChat) {
+                        AIChatScreen(
+                            viewModel = aiChatVM,
+                            userId = userId,
+                            onClose = { showAIChat = false }
                         )
                     }
                 }
@@ -104,6 +152,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+
 
 /* ================= MAIN MENU ================= */
 

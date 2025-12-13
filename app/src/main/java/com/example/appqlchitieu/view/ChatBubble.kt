@@ -41,7 +41,7 @@ fun ChatBubble(
     }
     val sizePx = with(density) { size.toPx() }
 
-    // 🔥 Animatable cho animation iOS
+    //  Animatable cho animation iOS
     val offsetX = remember { Animatable(0f) }
     val offsetY = remember { Animatable(300f) }
 
