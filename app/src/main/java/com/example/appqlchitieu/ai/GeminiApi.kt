@@ -48,7 +48,7 @@ object GeminiApi {
                 .getJSONObject(0)
                 .getString("text")
         } catch (e: Exception) {
-            "❌ API Error: $responseBody"
+            "API Error: $responseBody"
         }
     }
 
