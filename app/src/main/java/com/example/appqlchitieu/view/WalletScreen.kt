@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/appqlchitieu/view/WalletScreen.kt
+
 package com.example.appqlchitieu.view
 
 import androidx.compose.foundation.background

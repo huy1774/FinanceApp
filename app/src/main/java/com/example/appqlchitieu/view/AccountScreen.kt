@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/appqlchitieu/view/AccountScreen.kt
+
 package com.example.appqlchitieu.view
 
 import android.content.Intent

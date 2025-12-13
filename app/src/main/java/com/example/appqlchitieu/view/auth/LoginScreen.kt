@@ -116,10 +116,10 @@ fun LoginScreen(
                                 if (success) {
                                     val user = vm.currentUser.value
                                     if (user != null) {
-                                        // ✅ Lưu userId cho các màn sau đọc
+                                        // Lưu userId cho các màn sau đọc
                                         sessionManager.saveLogin(user.id)
 
-                                        // ✅ Điều hướng do AuthNavigation chịu trách nhiệm
+                                        // Điều hướng do AuthNavigation chịu trách nhiệm
                                         onLoginSuccess()
                                     } else {
                                         Toast.makeText(

@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/appqlchitieu/view/MainActivity.kt
+
 package com.example.appqlchitieu.view
 
 import android.content.Intent

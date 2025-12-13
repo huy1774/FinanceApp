@@ -4,7 +4,7 @@ import androidx.room.*
 import com.example.appqlchitieu.model.AIChat
 import kotlinx.coroutines.flow.Flow
 
-//Nhiệm vụ: Lưu và lấy lịch sử hội thoại giữa người dùng và AI.
+//Lưu và lấy lịch sử hội thoại giữa người dùng và AI.
 @Dao
 interface AIChatDao {
 
@@ -19,9 +19,9 @@ interface AIChatDao {
 
     @Query("DELETE FROM aichat_table WHERE userId = :userId")
     suspend fun deleteAllChats(userId: Int)
-    //  Xóa toàn bộ lịch sử chat của người dùng.
+    // Xóa toàn bộ lịch sử chat của người dùng.
 
     @Query("SELECT * FROM aichat_table WHERE userId = :userId ORDER BY createdAt DESC LIMIT 1")
     suspend fun getLastMessage(userId: Int): AIChat?
-    //  Lấy tin nhắn gần nhất (dùng hiển thị ở màn hình chính).
+    // Lấy tin nhắn gần nhất (dùng hiển thị ở màn hình chính).
 }

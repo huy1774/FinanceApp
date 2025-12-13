@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/appqlchitieu/view/TransactionScreen.kt
+
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.example.appqlchitieu.view
@@ -31,7 +31,7 @@ import java.util.*
 import com.example.appqlchitieu.utils.SessionManager
 import com.example.appqlchitieu.utils.UserSession
 
-// ✅ Đưa enum ra top-level & đổi tên để tránh đụng với material3.Tab
+// Đưa enum ra top-level & đổi tên để tránh đụng với material3.Tab
 enum class TxTab { ALL, EXPENSE, INCOME }
 
 /**

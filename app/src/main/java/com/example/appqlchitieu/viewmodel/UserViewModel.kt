@@ -60,7 +60,7 @@ class UserViewModel(private val repo: UserRepository, private val dataStore: Use
             if (user != null) {
                 _currentUser.value = user
                 dataStore.saveUser(user.name, user.email)
-                sessionManager.saveLogin(user.id) // ✅ KEY CHÍNH Ở ĐÂY
+                sessionManager.saveLogin(user.id) // KEY CHÍNH Ở ĐÂY
                 onResult(true)
             } else {
                 onResult(false)

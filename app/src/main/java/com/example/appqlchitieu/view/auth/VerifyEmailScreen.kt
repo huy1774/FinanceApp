@@ -74,7 +74,7 @@ fun VerifyEmailScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // 🔥 NÚT XÁC MINH OTP — ĐÃ CHỈNH ĐÚNG
+                // NÚT XÁC MINH OTP — ĐÃ CHỈNH ĐÚNG
                 Button(
                     onClick = {
                         if (otp.length == 6) {

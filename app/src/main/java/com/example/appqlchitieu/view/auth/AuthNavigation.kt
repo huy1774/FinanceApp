@@ -56,7 +56,7 @@ fun NavGraphBuilder.AuthNavigation(
             onBackToLogin = { nav.navigate("login") },
             onResendCode = { vm.generateOtp(email) {} },
             onVerifySuccess = {
-                // ✅ OTP OK thì coi như auto-login
+                // OTP OK thì coi như auto-login
                 vm.loginAfterVerify(email) { ok ->
                     if (ok) {
                         nav.navigate("home") {

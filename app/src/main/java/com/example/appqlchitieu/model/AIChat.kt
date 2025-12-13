@@ -1,28 +1,23 @@
-package com.example.appqlchitieu.database
+package com.example.appqlchitieu.model
 
-import android.content.Context
-import androidx.room.Room
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
-object DatabaseProvider {
+@Entity(tableName = "aichat_table")
+data class AIChat(
 
-    private const val DB_NAME = "app_database"
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    // id là khóa chính của bảng.
 
-    @Volatile
-    private var INSTANCE: AppDatabase? = null
+    val userId: Int,
+    // userId là ID của người dùng gửi câu hỏi.
 
-    fun getDatabase(context: Context): AppDatabase {
-        return INSTANCE ?: synchronized(this) {
-            val instance = Room.databaseBuilder(
-                context.applicationContext,
-                AppDatabase::class.java,
-                DB_NAME
-            )
-                .fallbackToDestructiveMigration() //  đổi schema là reset DB luôn
-                .fallbackToDestructiveMigrationOnDowngrade()
-                .build()
+    val question: String,
+    // question là câu hỏi người dùng nhập.
 
-            INSTANCE = instance
-            instance
-        }
-    }
-}
+    val response: String,
+    // response là câu trả lời của AI.
+
+    val createdAt: Long = System.currentTimeMillis()
+    // createdAt là thời gian lưu đoạn chat (tính theo mili-giây).
+)
