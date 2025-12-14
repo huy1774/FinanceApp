@@ -29,27 +29,31 @@ class UserViewModel(
     private var otpPurpose by mutableStateOf<VerifyPurpose?>(null)
     private var otpExpireTime by mutableStateOf(0L)
 
-    // ===== LOGIN (ĐÃ SỬA LOGIC THÔNG BÁO) =====
-    // Callback trả về (Success, Message)
+    // --- HÀM MỚI: Load lại user khi mở app ---
+    fun loadUser(userId: Int) {
+        viewModelScope.launch {
+            val user = repo.getUserById(userId)
+            if (user != null) {
+                currentUser = user
+            }
+        }
+    }
+    // ----------------------------------------
+
+    // ===== LOGIN =====
     fun login(context: Context, email: String, password: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            // 1. Kiểm tra email có tồn tại không trước
             val userByEmail = repo.getByEmail(email)
-
             if (userByEmail == null) {
-                // Không tìm thấy email -> Báo chưa có tài khoản
                 onResult(false, "Tài khoản không tồn tại. Vui lòng đăng ký!")
             } else {
-                // 2. Có email -> Kiểm tra mật khẩu (login)
                 val userLogin = repo.login(email, password)
                 if (userLogin != null) {
-                    // Đúng pass
                     currentUser = userLogin
                     dataStore.saveUser(userLogin.name, userLogin.email)
                     sessionManager.saveLogin(userLogin.id)
                     onResult(true, "Đăng nhập thành công")
                 } else {
-                    // Sai pass
                     onResult(false, "Mật khẩu không đúng!")
                 }
             }

@@ -37,10 +37,8 @@ fun BudgetScreen(onBack: (() -> Unit)? = null) {
     val context = LocalContext.current
     val db = remember { DatabaseProvider.getDatabase(context) }
     val scope = rememberCoroutineScope()
-
     val userSession = remember { UserSession(SessionManager(context)) }
     val userId = userSession.userIdOrNull()
-
     if (userId == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Bạn chưa đăng nhập")

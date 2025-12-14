@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -34,6 +37,9 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+
+    // State hiển thị pass
+    var showPass by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -71,9 +77,16 @@ fun LoginScreen(
                         onValueChange = { pass = it },
                         label = { Text("Mật khẩu") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        // Logic hiện/ẩn
+                        visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            val image = if (showPass) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                            IconButton(onClick = { showPass = !showPass }) {
+                                Icon(imageVector = image, contentDescription = null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 25.dp),
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
                         enabled = !loading
                     )
 
@@ -93,14 +106,12 @@ fun LoginScreen(
                             if (p.length < 6) { Toast.makeText(context, "Mật khẩu phải ≥ 6 ký tự!", Toast.LENGTH_SHORT).show(); return@Button }
 
                             loading = true
-                            // Sửa: Nhận thêm message từ viewModel
                             vm.login(context, e, p) { success, message ->
                                 loading = false
                                 if (success) {
                                     vm.currentUser?.let { sessionManager.saveLogin(it.id) }
                                     onLoginSuccess()
                                 } else {
-                                    // Hiển thị thông báo cụ thể (Không tồn tại / Sai pass)
                                     Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                 }
                             }

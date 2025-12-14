@@ -4,11 +4,14 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.appqlchitieu.utils.SessionManager
@@ -24,7 +27,8 @@ enum class ErrorField {
 fun ChangePasswordScreen(
     userViewModel: UserViewModel,
     sessionManager: SessionManager,
-    navController: NavHostController
+    navController: NavHostController,
+    onLogoutSuccess: () -> Unit // Thêm callback để báo Main ẩn Chat
 ) {
     val context = LocalContext.current
     val userId = UserSession(sessionManager).requireUserId()
@@ -32,6 +36,11 @@ fun ChangePasswordScreen(
     var oldPass by remember { mutableStateOf("") }
     var newPass by remember { mutableStateOf("") }
     var confirmPass by remember { mutableStateOf("") }
+
+    // State hiển thị mật khẩu
+    var showOldPass by remember { mutableStateOf(false) }
+    var showNewPass by remember { mutableStateOf(false) }
+    var showConfirmPass by remember { mutableStateOf(false) }
 
     var errorField by remember { mutableStateOf<ErrorField?>(null) }
     var errorMessage by remember { mutableStateOf("") }
@@ -92,6 +101,7 @@ fun ChangePasswordScreen(
                 .padding(20.dp)
         ) {
 
+            // --- MẬT KHẨU CŨ ---
             OutlinedTextField(
                 value = oldPass,
                 onValueChange = {
@@ -99,7 +109,13 @@ fun ChangePasswordScreen(
                     if (errorField == ErrorField.OLD) errorField = null
                 },
                 label = { Text("Mật khẩu cũ") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showOldPass) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (showOldPass) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    IconButton(onClick = { showOldPass = !showOldPass }) {
+                        Icon(imageVector = image, contentDescription = null)
+                    }
+                },
                 isError = errorField == ErrorField.OLD,
                 supportingText = {
                     if (errorField == ErrorField.OLD)
@@ -110,6 +126,7 @@ fun ChangePasswordScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // --- MẬT KHẨU MỚI ---
             OutlinedTextField(
                 value = newPass,
                 onValueChange = {
@@ -117,7 +134,13 @@ fun ChangePasswordScreen(
                     if (errorField == ErrorField.NEW) errorField = null
                 },
                 label = { Text("Mật khẩu mới") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showNewPass) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (showNewPass) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    IconButton(onClick = { showNewPass = !showNewPass }) {
+                        Icon(imageVector = image, contentDescription = null)
+                    }
+                },
                 isError = errorField == ErrorField.NEW,
                 supportingText = {
                     if (errorField == ErrorField.NEW)
@@ -128,6 +151,7 @@ fun ChangePasswordScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // --- XÁC NHẬN MẬT KHẨU ---
             OutlinedTextField(
                 value = confirmPass,
                 onValueChange = {
@@ -135,7 +159,13 @@ fun ChangePasswordScreen(
                     if (errorField == ErrorField.CONFIRM) errorField = null
                 },
                 label = { Text("Xác nhận mật khẩu mới") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (showConfirmPass) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (showConfirmPass) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    IconButton(onClick = { showConfirmPass = !showConfirmPass }) {
+                        Icon(imageVector = image, contentDescription = null)
+                    }
+                },
                 isError = errorField == ErrorField.CONFIRM,
                 supportingText = {
                     if (errorField == ErrorField.CONFIRM)
@@ -154,13 +184,15 @@ fun ChangePasswordScreen(
 
                     loading = true
 
-                    // Call changePassword with the actual signature: (userId, newPass, onResult)
                     userViewModel.changePassword(userId, newPass) { success: Boolean, msg: String ->
                         loading = false
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
 
                         if (success) {
                             sessionManager.logout()
+                            // Gọi callback để MainActivity biết đường ẩn ChatBubble
+                            onLogoutSuccess()
+
                             navController.navigate("login") {
                                 popUpTo("home") { inclusive = true }
                             }

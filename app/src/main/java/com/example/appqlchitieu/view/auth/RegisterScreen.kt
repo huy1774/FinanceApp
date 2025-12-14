@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,12 +20,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.appqlchitieu.model.User
 import com.example.appqlchitieu.viewmodel.UserViewModel
-import com.example.appqlchitieu.ui.auth.VerifyPurpose
 
 @Composable
 fun RegisterScreen(
@@ -37,6 +39,9 @@ fun RegisterScreen(
     var phone by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
+
+    var showPass by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -65,16 +70,32 @@ fun RegisterScreen(
                         leadingIcon = { Icon(Icons.Default.Email, null) },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 15.dp),
                         singleLine = true, shape = RoundedCornerShape(12.dp))
+
+                    // PASS
                     OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text("Mật khẩu") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 15.dp),
                         singleLine = true, shape = RoundedCornerShape(12.dp),
-                        visualTransformation = PasswordVisualTransformation())
+                        visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showPass = !showPass }) {
+                                Icon(if (showPass) Icons.Filled.Visibility else Icons.Filled.VisibilityOff, null)
+                            }
+                        }
+                    )
+
+                    // CONFIRM
                     OutlinedTextField(value = confirm, onValueChange = { confirm = it }, label = { Text("Nhập lại mật khẩu") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
                         modifier = Modifier.fillMaxWidth().padding(bottom = 25.dp),
                         singleLine = true, shape = RoundedCornerShape(12.dp),
-                        visualTransformation = PasswordVisualTransformation())
+                        visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showConfirm = !showConfirm }) {
+                                Icon(if (showConfirm) Icons.Filled.Visibility else Icons.Filled.VisibilityOff, null)
+                            }
+                        }
+                    )
 
                     Button(
                         onClick = {

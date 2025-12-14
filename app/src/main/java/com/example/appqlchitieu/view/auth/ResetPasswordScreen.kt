@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +17,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -30,6 +33,9 @@ fun ResetPasswordScreen(
     var newPass by remember { mutableStateOf("") }
     var confirmPass by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+
+    var showNew by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
 
     // Màu background theo yêu cầu
     val bgBrush = Brush.verticalGradient(listOf(Color(0xFF4980FF), Color(0xFF8AC9FF)))
@@ -72,7 +78,12 @@ fun ResetPasswordScreen(
                         onValueChange = { newPass = it },
                         label = { Text("Mật khẩu mới") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showNew = !showNew }) {
+                                Icon(if (showNew) Icons.Filled.Visibility else Icons.Filled.VisibilityOff, null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
@@ -82,7 +93,12 @@ fun ResetPasswordScreen(
                         onValueChange = { confirmPass = it },
                         label = { Text("Xác nhận mật khẩu") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showConfirm = !showConfirm }) {
+                                Icon(if (showConfirm) Icons.Filled.Visibility else Icons.Filled.VisibilityOff, null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )

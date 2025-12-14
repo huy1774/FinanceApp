@@ -60,6 +60,14 @@ class MainActivity : ComponentActivity() {
                 )
             )
 
+            // --- SỬA LỖI TẠI ĐÂY: Load user ngay khi mở app nếu đã đăng nhập ---
+            LaunchedEffect(isUserLoggedIn) {
+                if (isUserLoggedIn && currentUserId != -1) {
+                    userVM.loadUser(currentUserId)
+                }
+            }
+            // ------------------------------------------------------------------
+
             val aiChatVM: AIChatViewModel = viewModel(
                 factory = AIChatViewModelFactory(
                     AIChatRepository(db.aiChatDao()),
@@ -109,15 +117,18 @@ class MainActivity : ComponentActivity() {
                         ChangePasswordScreen(
                             userViewModel = userVM,
                             sessionManager = sessionManager,
-                            navController = navController
+                            navController = navController,
+                            onLogoutSuccess = {
+                                isUserLoggedIn = false
+                                currentUserId = -1
+                                showAIChat = false
+                            }
                         )
                     }
                 }
 
                 // --- CHAT BUBBLE ---
-                // Chỉ hiện khi Đã Login
                 if (isUserLoggedIn && currentUserId != -1) {
-                    // Gọi ChatBubble từ file ChatBubble.kt
                     ChatBubble(onClick = { showAIChat = true })
 
                     if (showAIChat) {
@@ -133,10 +144,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ==========================================
-// MÀN HÌNH CHÍNH & THANH ĐIỀU HƯỚNG
-// ==========================================
-
+// ... (Giữ nguyên phần MainMenuScreen và MainBottomBar ở dưới) ...
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(
@@ -352,5 +360,3 @@ private fun RowScope.BottomNavItem(
         alwaysShowLabel = false
     )
 }
-
-// ĐÃ XÓA HÀM ChatBubble Ở ĐÂY ĐỂ KHÔNG BỊ TRÙNG
