@@ -238,12 +238,15 @@ private fun BudgetEditDialog(
 
     var catId by remember { mutableStateOf(init.categoryId) }
     var amountText by remember {
-        mutableStateOf(if (init.amountLimit > 0) init.amountLimit.toLong().toString() else "")
+        mutableStateOf(
+            if (init.amountLimit > 0) init.amountLimit.toLong().toString() else ""
+        )
     }
 
     var start by remember { mutableStateOf(init.startDate) }
     var end by remember { mutableStateOf(init.endDate) }
-    var dateError by remember { mutableStateOf<String?>(null) }
+
+    var errorText by remember { mutableStateOf<String?>(null) }
 
     val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
@@ -279,21 +282,35 @@ private fun BudgetEditDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
                 var expanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(expanded, { expanded = it }) {
+
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = {
+                    expanded = it
+                }) {
                     OutlinedTextField(
-                        value = selectableCategories.find { it.id == catId }?.name ?: "Chọn danh mục",
+                        value = selectableCategories
+                            .find { it.id == catId }
+                            ?.name ?: "",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Danh mục") },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        placeholder = { Text("Chọn danh mục") },
+                        isError = errorText != null && catId == 0,
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
                     )
-                    ExposedDropdownMenu(expanded, { expanded = false }) {
+
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
                         selectableCategories.forEach {
                             DropdownMenuItem(
                                 text = { Text(it.name) },
                                 onClick = {
                                     catId = it.id
                                     expanded = false
+                                    errorText = null
                                 }
                             )
                         }
@@ -302,9 +319,13 @@ private fun BudgetEditDialog(
 
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filter(Char::isDigit) },
+                    onValueChange = {
+                        amountText = it.filter(Char::isDigit)
+                        errorText = null
+                    },
                     label = { Text("Hạn mức (đ)") },
-                    singleLine = true
+                    singleLine = true,
+                    isError = errorText != null && amountText.isBlank()
                 )
 
                 DateRow("Bắt đầu", start, sdf) {
@@ -315,7 +336,7 @@ private fun BudgetEditDialog(
                     showDatePicker(end) { end = it }
                 }
 
-                dateError?.let {
+                errorText?.let {
                     Text(it, color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -323,13 +344,21 @@ private fun BudgetEditDialog(
         confirmButton = {
             TextButton(onClick = {
                 val limit = amountText.toDoubleOrNull()
-                dateError = null
+                errorText = null
 
-                if (limit == null || limit <= 0) return@TextButton
-                if (catId == 0) return@TextButton
-                if (start > end) {
-                    dateError = "Ngày bắt đầu phải trước ngày kết thúc"
-                    return@TextButton
+                when {
+                    catId == 0 -> {
+                        errorText = "Vui lòng chọn danh mục"
+                        return@TextButton
+                    }
+                    limit == null || limit <= 0 -> {
+                        errorText = "Vui lòng nhập hạn mức hợp lệ"
+                        return@TextButton
+                    }
+                    start > end -> {
+                        errorText = "Ngày bắt đầu phải trước ngày kết thúc"
+                        return@TextButton
+                    }
                 }
 
                 onConfirm(
@@ -345,10 +374,11 @@ private fun BudgetEditDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Hủy") }
+            TextButton(onClick = onDismiss) { Text("Huỷ") }
         }
     )
 }
+
 
 /* ================= CARD ================= */
 

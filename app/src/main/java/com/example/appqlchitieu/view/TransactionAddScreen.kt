@@ -148,13 +148,20 @@ fun TransactionAddScreen(
                 }
 
                 Spacer(Modifier.height(12.dp))
-
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it },
+                    onValueChange = { input ->
+                        // Chỉ cho phép số và dấu chấm
+                        if (input.isEmpty() || input.matches(Regex("^\\d*(\\.\\d*)?$"))) {
+                            amountText = input
+                            error = null
+                        }
+                    },
                     label = { Text("Số tiền") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = FieldShape,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -165,6 +172,7 @@ fun TransactionAddScreen(
                         cursorColor = Color(0xFF1976D2)
                     )
                 )
+
 
                 Spacer(Modifier.height(10.dp))
 

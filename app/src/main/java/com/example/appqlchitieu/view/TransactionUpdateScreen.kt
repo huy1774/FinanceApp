@@ -86,7 +86,12 @@ fun TransactionUpdateScreen(
 
         if (e != null) {
             title = e.title
-            amountText = e.amount.toString()
+            amountText =
+                if (e.amount % 1.0 == 0.0)
+                    e.amount.toLong().toString()
+                else
+                    e.amount.toString()
+
             type = e.type
             dateMillis = e.date
 
@@ -178,7 +183,13 @@ fun TransactionUpdateScreen(
 
             OutlinedTextField(
                 value = amountText,
-                onValueChange = { amountText = it },
+                onValueChange = { input ->
+                    // Chỉ cho số và dấu chấm
+                    if (input.isEmpty() || input.matches(Regex("^\\d*(\\.\\d*)?$"))) {
+                        amountText = input
+                        error = null
+                    }
+                },
                 label = { Text("Số tiền") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

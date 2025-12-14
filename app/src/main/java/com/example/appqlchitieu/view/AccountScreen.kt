@@ -1,42 +1,32 @@
-
 package com.example.appqlchitieu.view
 
-import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.appqlchitieu.R
+import androidx.navigation.NavHostController
 import com.example.appqlchitieu.viewmodel.UserViewModel
 
 @Composable
 fun AccountScreen(
     userViewModel: UserViewModel,
+    navController: NavHostController,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
 
-    val context = LocalContext.current
-    // Lấy dữ liệu user từ DataStore qua ViewModel
     val name by userViewModel.userName.collectAsState(initial = "")
     val email by userViewModel.userEmail.collectAsState(initial = "")
     var showDialog by remember { mutableStateOf(false) }
@@ -64,7 +54,6 @@ fun AccountScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        // Hiển thị user đã login (nếu null thì dùng default)
         Text(
             text = if (name.isEmpty()) "Tên người dùng" else name,
             style = MaterialTheme.typography.titleLarge
@@ -77,11 +66,18 @@ fun AccountScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        AccountOption(
+            icon = Icons.Default.Lock,
+            title = "Đổi mật khẩu"
+        ) {
+            navController.navigate("change_password")
+        }
 
         AccountOption(Icons.Default.Settings, "Ngôn ngữ") {}
         AccountOption(Icons.Default.Notifications, "Thông báo") {}
 
         Spacer(Modifier.height(20.dp))
+
         Button(
             onClick = { showDialog = true },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C)),
@@ -94,6 +90,7 @@ fun AccountScreen(
             Spacer(Modifier.width(8.dp))
             Text("Đăng xuất", color = Color.White)
         }
+
         if (showDialog) {
             AlertDialog(
                 onDismissRequest = { showDialog = false },
@@ -104,9 +101,11 @@ fun AccountScreen(
                         onClick = {
                             userViewModel.logout()
                             showDialog = false
-                            onLogout()   // ← điều hướng về login
+                            onLogout()
                         }
-                    ) { Text("Đăng xuất", color = Color.Red) }
+                    ) {
+                        Text("Đăng xuất", color = Color.Red)
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDialog = false }) {
@@ -118,15 +117,12 @@ fun AccountScreen(
     }
 }
 
-
 @Composable
 private fun AccountOption(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit
-)
-
-{
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()

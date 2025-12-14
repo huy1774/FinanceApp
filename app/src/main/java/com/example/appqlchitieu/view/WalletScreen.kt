@@ -32,8 +32,11 @@ import com.example.appqlchitieu.viewmodel.WalletViewModelFactory
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.*
+import androidx.compose.material3.OutlinedTextField
 import com.example.appqlchitieu.utils.SessionManager
 import com.example.appqlchitieu.utils.UserSession
+
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -256,19 +259,29 @@ private fun WalletEditDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
+                /* ===== TÊN VÍ ===== */
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Tên ví") },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
+                /* ===== SỐ DƯ (CHỈ SỐ) ===== */
                 OutlinedTextField(
                     value = balanceText,
-                    onValueChange = { balanceText = it },
+                    onValueChange = { input ->
+                        // chỉ cho nhập số và dấu chấm
+                        if (input.matches(Regex("^\\d*(\\.\\d*)?$"))) {
+                            balanceText = input
+                            error = null
+                        }
+                    },
                     label = { Text("Số dư ban đầu") },
                     singleLine = true
                 )
+
 
                 error?.let {
                     Text(it, color = MaterialTheme.colorScheme.error)
@@ -294,6 +307,11 @@ private fun WalletEditDialog(
                         return@TextButton
                     }
 
+                    balanceText.isBlank() -> {
+                        error = "Vui lòng nhập số dư"
+                        return@TextButton
+                    }
+
                     bal == null -> {
                         error = "Số dư không hợp lệ"
                         return@TextButton
@@ -310,6 +328,7 @@ private fun WalletEditDialog(
         }
     )
 }
+
 
 
 @Preview(showBackground = true, showSystemUi = true)
