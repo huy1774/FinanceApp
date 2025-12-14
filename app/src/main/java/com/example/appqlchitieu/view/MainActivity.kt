@@ -7,8 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -23,9 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.*
 import com.example.app.data.datastore.UserDataStore
 import com.example.appqlchitieu.R
 import com.example.appqlchitieu.database.DatabaseProvider
@@ -36,48 +34,29 @@ import com.example.appqlchitieu.utils.UserSession
 import com.example.appqlchitieu.view.ui.theme.AppQLChiTieuTheme
 import com.example.appqlchitieu.viewmodel.*
 
-/* ================= ENUM ================= */
-
-private enum class TransactionSubScreen {
-    LIST, ADD, UPDATE
-}
-
-private enum class OverviewSubScreen {
-    HOME, WALLET, CATEGORY
-}
+private enum class TransactionSubScreen { LIST, ADD, UPDATE }
+private enum class OverviewSubScreen { HOME, WALLET, CATEGORY }
 
 private val BOTTOM_BAR_HEIGHT = 63.dp
 
-/* ================= ACTIVITY ================= */
-
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
-
-            /* ================= CONTEXT ================= */
             val context = this
             val navController = rememberNavController()
 
-            /* ================= SESSION ================= */
             val sessionManager = remember { SessionManager(context) }
             val userSession = remember { UserSession(sessionManager) }
 
-            val isLoggedIn by remember {
-                mutableStateOf(sessionManager.isLoggedIn())
-            }
+            // Use current session value (not a remembered mutableState that won't update)
+            val isLoggedIn = sessionManager.isLoggedIn()
+            val userId = userSession.userIdOrNull()
 
-            val userId = remember {
-                userSession.userIdOrNull()
-            }
-
-            /* ================= DB ================= */
             val db = remember { DatabaseProvider.getDatabase(context) }
 
-            /* ================= USER VM ================= */
             val userVM: UserViewModel = viewModel(
                 factory = UserViewModelFactory(
                     UserRepository(db.userDao()),
@@ -86,7 +65,6 @@ class MainActivity : ComponentActivity() {
                 )
             )
 
-            /* ================= AI CHAT VM ================= */
             val aiChatVM: AIChatViewModel = viewModel(
                 factory = AIChatViewModelFactory(
                     AIChatRepository(db.aiChatDao()),
@@ -97,13 +75,9 @@ class MainActivity : ComponentActivity() {
                 )
             )
 
-            /* ================= CHAT STATE ================= */
             var showAIChat by rememberSaveable { mutableStateOf(false) }
 
-            /* ================= THEME ================= */
             AppQLChiTieuTheme {
-
-                /* ============ NAVIGATION ============ */
                 NavHost(
                     navController = navController,
                     startDestination = if (isLoggedIn) "home" else "login"
@@ -113,9 +87,7 @@ class MainActivity : ComponentActivity() {
                         nav = navController,
                         vm = userVM,
                         sessionManager = sessionManager,
-                        onLoginSuccess = {
-                            showAIChat = false
-                        }
+                        onLoginSuccess = { showAIChat = false }
                     )
 
                     composable("home") {
@@ -131,15 +103,18 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+
+                    composable("change_password") {
+                        ChangePasswordScreen(
+                            userViewModel = userVM,
+                            sessionManager = sessionManager,
+                            navController = navController
+                        )
+                    }
                 }
 
-                /* ============ CHAT BUBBLE (GLOBAL) ============ */
                 if (isLoggedIn && userId != null) {
-
-                    ChatBubble(
-                        onClick = { showAIChat = true }
-                    )
-
+                    ChatBubble(onClick = { showAIChat = true })
                     if (showAIChat) {
                         AIChatScreen(
                             viewModel = aiChatVM,
@@ -153,10 +128,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
-
-/* ================= MAIN MENU ================= */
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(
@@ -166,7 +137,17 @@ fun MainMenuScreen(
 ) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
-    val userId = UserSession(sessionManager).userIdOrNull() ?: return
+    val userId = UserSession(sessionManager).userIdOrNull()
+
+    // If userId missing, navigate to login to avoid silent return causing missing UI/behavior
+    if (userId == null) {
+        LaunchedEffect(Unit) {
+            navController.navigate("login") {
+                popUpTo("home") { inclusive = true }
+            }
+        }
+        return
+    }
 
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var tranSub by rememberSaveable { mutableStateOf(TransactionSubScreen.LIST) }
@@ -196,128 +177,55 @@ fun MainMenuScreen(
             }
         },
         bottomBar = {
-            NavigationBar(modifier = Modifier.height(BOTTOM_BAR_HEIGHT)) {
-
-                BottomItem(
-                    selected = selectedTab == 0,
-                    onClick = {
-                        selectedTab = 0
-                        overviewSub = OverviewSubScreen.HOME
-                    },
-                    iconRes = R.drawable.ic_home,
-                    label = "Tổng quan",
-                    selectedColor = Color(0xFF512DA8)
-                )
-
-                BottomItem(
-                    selected = selectedTab == 1,
-                    onClick = {
-                        selectedTab = 1
-                        tranSub = TransactionSubScreen.LIST
-                    },
-                    iconRes = R.drawable.ic_list,
-                    label = "Giao dịch",
-                    selectedColor = Color(0xFF1976D2)
-                )
-
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {
-                        selectedTab = 1
-                        tranSub = TransactionSubScreen.ADD
-                    },
-                    icon = {
-                        Box(
-                            Modifier.size(44.dp).background(Color(0xFF388E3C), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.ic_add),
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-                    }
-                )
-
-                BottomItem(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    iconRes = R.drawable.ic_pie_chart,
-                    label = "Ngân sách",
-                    selectedColor = Color(0xFF388E3C)
-                )
-
-                BottomItem(
-                    selected = selectedTab == 4,
-                    onClick = { selectedTab = 4 },
-                    iconRes = R.drawable.ic_account,
-                    label = "Tài khoản",
-                    selectedColor = Color(0xFFFBC02D)
-                )
-            }
+            MainBottomBar(
+                selectedTab = selectedTab,
+                onSelect = { index ->
+                    selectedTab = index
+                    if (index == 0) overviewSub = OverviewSubScreen.HOME
+                    if (index == 1) tranSub = TransactionSubScreen.LIST
+                },
+                onQuickAdd = {
+                    selectedTab = 1
+                    tranSub = TransactionSubScreen.ADD
+                }
+            )
         }
     ) { padding ->
-
         Box(Modifier.fillMaxSize().padding(padding)) {
-
             when (selectedTab) {
-
                 /* ===== OVERVIEW ===== */
                 0 -> when (overviewSub) {
-
-                    OverviewSubScreen.HOME ->
-                        OverviewScreen(
-                            totalBalance = totalBalance,
-                            onNavigateToWallet = {
-                                overviewSub = OverviewSubScreen.WALLET
-                            },
-                            onNavigateToCategory = {
-                                overviewSub = OverviewSubScreen.CATEGORY
-                            }
-                        )
-
-                    OverviewSubScreen.WALLET ->
-                        WalletScreen(onBack = {
-                            overviewSub = OverviewSubScreen.HOME
-                        })
-
-                    OverviewSubScreen.CATEGORY ->
-                        CategoryManageScreen(onBack = {
-                            overviewSub = OverviewSubScreen.HOME
-                        })
+                    OverviewSubScreen.HOME -> OverviewScreen(
+                        totalBalance = totalBalance,
+                        onNavigateToWallet = { overviewSub = OverviewSubScreen.WALLET },
+                        onNavigateToCategory = { overviewSub = OverviewSubScreen.CATEGORY }
+                    )
+                    OverviewSubScreen.WALLET -> WalletScreen(onBack = { overviewSub = OverviewSubScreen.HOME })
+                    OverviewSubScreen.CATEGORY -> CategoryManageScreen(onBack = { overviewSub = OverviewSubScreen.HOME })
                 }
-
                 /* ===== TRANSACTION ===== */
                 1 -> when (tranSub) {
-
-                    TransactionSubScreen.LIST ->
-                        TransactionScreen(
-                            onAddClick = { tranSub = TransactionSubScreen.ADD },
-                            onEdit = {
-                                editId = it
-                                tranSub = TransactionSubScreen.UPDATE
-                            }
-                        )
-
-                    TransactionSubScreen.ADD ->
-                        TransactionAddScreen(
-                            onSaved = { tranSub = TransactionSubScreen.LIST },
-                            onBack = { tranSub = TransactionSubScreen.LIST }
-                        )
-
-                    TransactionSubScreen.UPDATE ->
-                        TransactionUpdateScreen(
-                            expenseId = editId,
-                            onBack = { tranSub = TransactionSubScreen.LIST },
-                            onSaved = { tranSub = TransactionSubScreen.LIST }
-                        )
+                    TransactionSubScreen.LIST -> TransactionScreen(
+                        onAddClick = { tranSub = TransactionSubScreen.ADD },
+                        onEdit = {
+                            editId = it
+                            tranSub = TransactionSubScreen.UPDATE
+                        }
+                    )
+                    TransactionSubScreen.ADD -> TransactionAddScreen(
+                        onSaved = { tranSub = TransactionSubScreen.LIST },
+                        onBack = { tranSub = TransactionSubScreen.LIST }
+                    )
+                    TransactionSubScreen.UPDATE -> TransactionUpdateScreen(
+                        expenseId = editId,
+                        onBack = { tranSub = TransactionSubScreen.LIST },
+                        onSaved = { tranSub = TransactionSubScreen.LIST }
+                    )
                 }
-
                 3 -> BudgetScreen()
-
                 4 -> AccountScreen(
                     userViewModel = userViewModel,
+                    navController = navController,
                     onLogout = {
                         sessionManager.logout()
                         onLogoutSuccess()
@@ -331,37 +239,122 @@ fun MainMenuScreen(
     }
 }
 
-/* ================= BOTTOM ITEM ================= */
+/* --- Styled bottom bar --- */
+@Composable
+private fun MainBottomBar(
+    selectedTab: Int,
+    onSelect: (Int) -> Unit,
+    onQuickAdd: () -> Unit
+) {
+    NavigationBar(
+        modifier = Modifier
+            .height(BOTTOM_BAR_HEIGHT)
+            .padding(horizontal = 8.dp),
+        tonalElevation = 4.dp
+    ) {
+        BottomNavItem(
+            index = 0,
+            selected = selectedTab == 0,
+            onClick = { onSelect(0) },
+            iconRes = R.drawable.ic_home,
+            label = "Tổng quan",
+            selectedColor = Color(0xFF512DA8)
+        )
+
+        BottomNavItem(
+            index = 1,
+            selected = selectedTab == 1,
+            onClick = { onSelect(1) },
+            iconRes = R.drawable.ic_list,
+            label = "Giao dịch",
+            selectedColor = Color(0xFF1976D2)
+        )
+
+        NavigationBarItem(
+            selected = false,
+            onClick = onQuickAdd,
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(Color(0xFF388E3C), shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                )  {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_add),
+                        contentDescription = "Add",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        )
+
+        BottomNavItem(
+            index = 3,
+            selected = selectedTab == 3,
+            onClick = { onSelect(3) },
+            iconRes = R.drawable.ic_pie_chart,
+            label = "Ngân sách",
+            selectedColor = Color(0xFF388E3C)
+        )
+
+        BottomNavItem(
+            index = 4,
+            selected = selectedTab == 4,
+            onClick = { onSelect(4) },
+            iconRes = R.drawable.ic_account,
+            label = "Tài khoản",
+            selectedColor = Color(0xFFFBC02D)
+        )
+    }
+}
 
 @Composable
-private fun RowScope.BottomItem(
+private fun RowScope.BottomNavItem(
+    index: Int,
     selected: Boolean,
     onClick: () -> Unit,
     iconRes: Int,
     label: String,
     selectedColor: Color
 ) {
+
+    val bgColor = if (selected) selectedColor.copy(alpha = 0f) else Color.Transparent
     val tint = if (selected) selectedColor else Color.Gray
 
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
         icon = {
-            Icon(
-                painterResource(iconRes),
-                contentDescription = label,
-                tint = tint
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(bgColor, shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = label,
+                        tint = tint,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = tint,
+                    maxLines = 1
+                )
+            }
         },
-        label = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1
-            )
-        },
-        alwaysShowLabel = true
+        label = { /* internal label used above */ },
+        alwaysShowLabel = false
     )
 }
-
-

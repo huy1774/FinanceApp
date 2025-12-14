@@ -114,6 +114,31 @@ class UserViewModel(private val repo: UserRepository, private val dataStore: Use
 
         return input == otpCode && now <= otpExpireTime
     }
+
+    fun changePassword(
+        userId: Int,
+        oldPass: String,
+        newPass: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val user = repo.getUserById(userId)
+
+            if (user == null) {
+                onResult(false, "Không tìm thấy người dùng")
+                return@launch
+            }
+
+            if (user.password != oldPass) {
+                onResult(false, "Mật khẩu cũ không đúng")
+                return@launch
+            }
+
+            repo.updatePassword(userId, newPass)
+            onResult(true, "Đổi mật khẩu thành công")
+        }
+    }
+
 }
 
 class UserViewModelFactory(

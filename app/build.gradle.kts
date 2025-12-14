@@ -67,6 +67,7 @@ dependencies {
 
     // JSON (cho LLM tools)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("androidx.compose.material3:material3")
 
     // HTTP client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
