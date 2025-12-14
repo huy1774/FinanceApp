@@ -4,111 +4,113 @@ import android.widget.Toast
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
-import com.example.appqlchitieu.ui.auth.LoginScreen
-import com.example.appqlchitieu.ui.auth.RegisterScreen
-import com.example.appqlchitieu.ui.auth.VerifyEmailScreen
+import com.example.appqlchitieu.ui.auth.*
 import com.example.appqlchitieu.utils.SessionManager
+import com.example.appqlchitieu.view.auth.ForgotPasswordScreen
+import com.example.appqlchitieu.view.auth.ResetPasswordScreen
 import com.example.appqlchitieu.viewmodel.UserViewModel
 
-/**
- * Auth flow:
- * - Login
- * - Register
- * - Verify Email
- *
- * Sau khi login / verify thành công:
- *  - SessionManager đã lưu user + isLoggedIn
- *  - GỌI onLoginSuccess() để MainActivity cập nhật STATE
- */
 fun NavGraphBuilder.AuthNavigation(
     nav: NavHostController,
     vm: UserViewModel,
     sessionManager: SessionManager,
     onLoginSuccess: () -> Unit
 ) {
-
-    /* ================= LOGIN ================= */
+    // 1. LOGIN
     composable("login") {
         LoginScreen(
             nav = nav,
             vm = vm,
             sessionManager = sessionManager,
-            onRegisterClick = {
-                nav.navigate("register")
-            },
+            onRegisterClick = { nav.navigate("register") },
             onLoginSuccess = {
-                // 🔥 Session đã lưu xong trong LoginScreen
-                onLoginSuccess()   // 👉 báo MainActivity recompose
-
-                nav.navigate("home") {
-                    popUpTo("login") { inclusive = true }
-                }
+                onLoginSuccess()
+                nav.navigate("home") { popUpTo("login") { inclusive = true } }
             }
         )
     }
 
-    /* ================= REGISTER ================= */
+    // 2. REGISTER
     composable("register") {
         RegisterScreen(
             nav = nav,
             vm = vm,
             onLoginClick = {
-                nav.navigate("login") {
-                    popUpTo("register") { inclusive = true }
-                }
+                nav.navigate("login") { popUpTo("register") { inclusive = true } }
             },
             onRegisterSuccess = { email ->
-                vm.generateOtp(email) { sent ->
-                    if (sent) {
-                        nav.navigate("verify/$email")
-                    } else {
-                        Toast.makeText(
-                            nav.context,
-                            "Không gửi được OTP",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                // Đăng ký thành công -> Gửi OTP -> Sang trang xác thực
+                vm.generateOtp(email, VerifyPurpose.REGISTER) { sent ->
+                    if (sent) nav.navigate("verify/$email/REGISTER")
+                    else Toast.makeText(nav.context, "Lỗi kết nối, không gửi được OTP", Toast.LENGTH_SHORT).show()
                 }
             }
         )
     }
 
-    /* ================= VERIFY EMAIL ================= */
-    composable("verify/{email}") { backStack ->
+    // 3. VERIFY OTP (Dùng chung cho Đăng ký và Quên mật khẩu)
+    composable("verify/{email}/{purpose}") { backStack ->
         val email = backStack.arguments?.getString("email") ?: ""
+        val purposeStr = backStack.arguments?.getString("purpose") ?: "REGISTER"
+        val purpose = try { VerifyPurpose.valueOf(purposeStr) } catch (e: Exception) { VerifyPurpose.REGISTER }
 
         VerifyEmailScreen(
             email = email,
             vm = vm,
-            onBackToLogin = {
-                nav.navigate("login") {
-                    popUpTo("verify/$email") { inclusive = true }
+            purpose = purpose,
+            onVerifySuccess = {
+                if (purpose == VerifyPurpose.REGISTER) {
+                    // Nếu là Đăng ký -> Login luôn
+                    vm.loginAfterVerify(email) { ok ->
+                        if (ok) {
+                            onLoginSuccess()
+                            nav.navigate("home") { popUpTo("login") { inclusive = true } }
+                        }
+                    }
+                } else {
+                    // Nếu là Quên mật khẩu -> Sang trang đổi pass
+                    nav.navigate("reset_password/$email")
+                }
+            },
+            onBack = {
+                // Logic nút Back
+                if (purpose == VerifyPurpose.REGISTER) {
+                    nav.navigate("register") { popUpTo("register") { inclusive = true } }
+                } else {
+                    nav.navigate("forgot_password") { popUpTo("forgot_password") { inclusive = true } }
                 }
             },
             onResendCode = {
-                vm.generateOtp(email) {}
-            },
-            onVerifySuccess = {
-                vm.loginAfterVerify(email) { ok ->
-                    if (ok) {
-                        // 🔥 Login xong + đã lưu session
-                        onLoginSuccess()   // 👉 cập nhật isLoggedIn + userId
-
-                        nav.navigate("home") {
-                            popUpTo("login") { inclusive = true }
-                        }
-                    } else {
-                        Toast.makeText(
-                            nav.context,
-                            "Không tìm thấy user sau xác thực",
-                            Toast.LENGTH_SHORT
-                        ).show()
-
-                        nav.navigate("login") {
-                            popUpTo("verify/$email") { inclusive = true }
-                        }
-                    }
+                // Logic Gửi lại mã
+                vm.generateOtp(email, purpose) { sent ->
+                    val msg = if (sent) "Đã gửi lại mã OTP mới tới $email" else "Gửi thất bại. Kiểm tra mạng!"
+                    Toast.makeText(nav.context, msg, Toast.LENGTH_SHORT).show()
                 }
+            }
+        )
+    }
+
+    // 4. FORGOT PASSWORD (Nhập Email)
+    composable("forgot_password") {
+        ForgotPasswordScreen(
+            nav = nav,
+            vm = vm,
+            onBack = {
+                nav.navigate("login") { popUpTo("login") { inclusive = true } }
+            }
+        )
+    }
+
+    // 5. RESET PASSWORD (Nhập mật khẩu mới)
+    composable("reset_password/{email}") { backStack ->
+        val email = backStack.arguments?.getString("email") ?: return@composable
+        ResetPasswordScreen(
+            email = email,
+            nav = nav,
+            vm = vm,
+            onBack = {
+                // Back về trang OTP
+                nav.popBackStack()
             }
         )
     }

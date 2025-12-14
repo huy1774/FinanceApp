@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -41,7 +43,7 @@ fun ChatBubble(
     }
     val sizePx = with(density) { size.toPx() }
 
-    //  Animatable cho animation iOS
+    // Animation states
     val offsetX = remember { Animatable(0f) }
     val offsetY = remember { Animatable(300f) }
 
@@ -56,26 +58,25 @@ fun ChatBubble(
                 )
             }
             .size(size)
-            .alpha(0.7f) // mờ 70%
+            .alpha(0.8f)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary)
+            // Màu tím giống App
+            .background(Color(0xFF6A5ACD))
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
                         change.consume()
-
                         scope.launch {
                             offsetX.snapTo(offsetX.value + dragAmount.x)
                             offsetY.snapTo(offsetY.value + dragAmount.y)
                         }
                     },
                     onDragEnd = {
-                        val targetX =
-                            if (offsetX.value + sizePx / 2 < screenWidthPx / 2) {
-                                0f
-                            } else {
-                                screenWidthPx - sizePx
-                            }
+                        val targetX = if (offsetX.value + sizePx / 2 < screenWidthPx / 2) {
+                            0f
+                        } else {
+                            screenWidthPx - sizePx
+                        }
 
                         scope.launch {
                             offsetX.animateTo(
@@ -95,7 +96,7 @@ fun ChatBubble(
         Icon(
             painter = painterResource(id = R.drawable.ic_ai),
             contentDescription = "AI Chat",
-            tint = androidx.compose.ui.graphics.Color.White,
+            tint = Color.White,
             modifier = Modifier.size(28.dp)
         )
     }

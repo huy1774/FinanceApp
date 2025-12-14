@@ -51,5 +51,4 @@ object GeminiApi {
             "API Error: $responseBody"
         }
     }
-
 }

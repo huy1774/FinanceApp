@@ -15,13 +15,9 @@ import com.example.appqlchitieu.utils.SessionManager
 import com.example.appqlchitieu.utils.UserSession
 import com.example.appqlchitieu.viewmodel.UserViewModel
 
-/* ================= ENUM ================= */
-
 enum class ErrorField {
     OLD, NEW, CONFIRM
 }
-
-/* ================= SCREEN ================= */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,31 +45,26 @@ fun ChangePasswordScreen(
                 errorMessage = "Vui lòng nhập mật khẩu cũ"
                 false
             }
-
             newPass.isBlank() -> {
                 errorField = ErrorField.NEW
                 errorMessage = "Vui lòng nhập mật khẩu mới"
                 false
             }
-
             newPass.length < 6 -> {
                 errorField = ErrorField.NEW
                 errorMessage = "Mật khẩu phải ≥ 6 ký tự"
                 false
             }
-
             confirmPass.isBlank() -> {
                 errorField = ErrorField.CONFIRM
                 errorMessage = "Vui lòng xác nhận mật khẩu"
                 false
             }
-
             confirmPass != newPass -> {
                 errorField = ErrorField.CONFIRM
                 errorMessage = "Mật khẩu xác nhận không khớp"
                 false
             }
-
             else -> {
                 errorField = null
                 errorMessage = ""
@@ -101,7 +92,6 @@ fun ChangePasswordScreen(
                 .padding(20.dp)
         ) {
 
-            /* ===== OLD PASSWORD ===== */
             OutlinedTextField(
                 value = oldPass,
                 onValueChange = {
@@ -120,7 +110,6 @@ fun ChangePasswordScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            /* ===== NEW PASSWORD ===== */
             OutlinedTextField(
                 value = newPass,
                 onValueChange = {
@@ -139,7 +128,6 @@ fun ChangePasswordScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            /* ===== CONFIRM PASSWORD ===== */
             OutlinedTextField(
                 value = confirmPass,
                 onValueChange = {
@@ -165,18 +153,16 @@ fun ChangePasswordScreen(
                     if (!validate()) return@Button
 
                     loading = true
-                    userViewModel.changePassword(
-                        userId = userId,
-                        oldPass = oldPass,
-                        newPass = newPass
-                    ) { success, msg ->
+
+                    // Call changePassword with the actual signature: (userId, newPass, onResult)
+                    userViewModel.changePassword(userId, newPass) { success: Boolean, msg: String ->
                         loading = false
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
 
                         if (success) {
                             sessionManager.logout()
                             navController.navigate("login") {
-                                popUpTo(0)
+                                popUpTo("home") { inclusive = true }
                             }
                         }
                     }

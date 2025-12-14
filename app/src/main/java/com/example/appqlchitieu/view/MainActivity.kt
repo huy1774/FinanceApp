@@ -4,10 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,7 +13,6 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +31,7 @@ import com.example.appqlchitieu.utils.UserSession
 import com.example.appqlchitieu.view.ui.theme.AppQLChiTieuTheme
 import com.example.appqlchitieu.viewmodel.*
 
+// Các Enum cho màn hình con
 private enum class TransactionSubScreen { LIST, ADD, UPDATE }
 private enum class OverviewSubScreen { HOME, WALLET, CATEGORY }
 
@@ -47,15 +45,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = this
             val navController = rememberNavController()
-
             val sessionManager = remember { SessionManager(context) }
-            val userSession = remember { UserSession(sessionManager) }
-
-            // Use current session value (not a remembered mutableState that won't update)
-            val isLoggedIn = sessionManager.isLoggedIn()
-            val userId = userSession.userIdOrNull()
-
             val db = remember { DatabaseProvider.getDatabase(context) }
+
+            // State quản lý trạng thái Login/Logout realtime
+            var isUserLoggedIn by remember { mutableStateOf(sessionManager.isLoggedIn()) }
+            var currentUserId by remember { mutableStateOf(sessionManager.getUserId()) }
 
             val userVM: UserViewModel = viewModel(
                 factory = UserViewModelFactory(
@@ -80,14 +75,18 @@ class MainActivity : ComponentActivity() {
             AppQLChiTieuTheme {
                 NavHost(
                     navController = navController,
-                    startDestination = if (isLoggedIn) "home" else "login"
+                    startDestination = if (sessionManager.isLoggedIn()) "home" else "login"
                 ) {
-
+                    // Navigation cho Auth
                     AuthNavigation(
                         nav = navController,
                         vm = userVM,
                         sessionManager = sessionManager,
-                        onLoginSuccess = { showAIChat = false }
+                        onLoginSuccess = {
+                            isUserLoggedIn = true
+                            currentUserId = sessionManager.getUserId()
+                            showAIChat = false
+                        }
                     )
 
                     composable("home") {
@@ -96,6 +95,8 @@ class MainActivity : ComponentActivity() {
                             navController = navController,
                             onLogoutSuccess = {
                                 sessionManager.logout()
+                                isUserLoggedIn = false
+                                currentUserId = -1
                                 showAIChat = false
                                 navController.navigate("login") {
                                     popUpTo("home") { inclusive = true }
@@ -113,12 +114,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                if (isLoggedIn && userId != null) {
+                // --- CHAT BUBBLE ---
+                // Chỉ hiện khi Đã Login
+                if (isUserLoggedIn && currentUserId != -1) {
+                    // Gọi ChatBubble từ file ChatBubble.kt
                     ChatBubble(onClick = { showAIChat = true })
+
                     if (showAIChat) {
                         AIChatScreen(
                             viewModel = aiChatVM,
-                            userId = userId,
+                            userId = currentUserId,
                             onClose = { showAIChat = false }
                         )
                     }
@@ -127,6 +132,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+// ==========================================
+// MÀN HÌNH CHÍNH & THANH ĐIỀU HƯỚNG
+// ==========================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,7 +148,6 @@ fun MainMenuScreen(
     val sessionManager = remember { SessionManager(context) }
     val userId = UserSession(sessionManager).userIdOrNull()
 
-    // If userId missing, navigate to login to avoid silent return causing missing UI/behavior
     if (userId == null) {
         LaunchedEffect(Unit) {
             navController.navigate("login") {
@@ -193,7 +201,6 @@ fun MainMenuScreen(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (selectedTab) {
-                /* ===== OVERVIEW ===== */
                 0 -> when (overviewSub) {
                     OverviewSubScreen.HOME -> OverviewScreen(
                         totalBalance = totalBalance,
@@ -203,7 +210,6 @@ fun MainMenuScreen(
                     OverviewSubScreen.WALLET -> WalletScreen(onBack = { overviewSub = OverviewSubScreen.HOME })
                     OverviewSubScreen.CATEGORY -> CategoryManageScreen(onBack = { overviewSub = OverviewSubScreen.HOME })
                 }
-                /* ===== TRANSACTION ===== */
                 1 -> when (tranSub) {
                     TransactionSubScreen.LIST -> TransactionScreen(
                         onAddClick = { tranSub = TransactionSubScreen.ADD },
@@ -226,20 +232,13 @@ fun MainMenuScreen(
                 4 -> AccountScreen(
                     userViewModel = userViewModel,
                     navController = navController,
-                    onLogout = {
-                        sessionManager.logout()
-                        onLogoutSuccess()
-                        navController.navigate("login") {
-                            popUpTo("home") { inclusive = true }
-                        }
-                    }
+                    onLogout = { onLogoutSuccess() }
                 )
             }
         }
     }
 }
 
-/* --- Styled bottom bar --- */
 @Composable
 private fun MainBottomBar(
     selectedTab: Int,
@@ -319,7 +318,6 @@ private fun RowScope.BottomNavItem(
     label: String,
     selectedColor: Color
 ) {
-
     val bgColor = if (selected) selectedColor.copy(alpha = 0f) else Color.Transparent
     val tint = if (selected) selectedColor else Color.Gray
 
@@ -327,11 +325,7 @@ private fun RowScope.BottomNavItem(
         selected = selected,
         onClick = onClick,
         icon = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -354,7 +348,9 @@ private fun RowScope.BottomNavItem(
                 )
             }
         },
-        label = { /* internal label used above */ },
+        label = { },
         alwaysShowLabel = false
     )
 }
+
+// ĐÃ XÓA HÀM ChatBubble Ở ĐÂY ĐỂ KHÔNG BỊ TRÙNG

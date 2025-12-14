@@ -1,7 +1,6 @@
 package com.example.appqlchitieu.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,48 +8,51 @@ import androidx.lifecycle.*
 import com.example.app.data.datastore.UserDataStore
 import com.example.appqlchitieu.model.User
 import com.example.appqlchitieu.repository.UserRepository
+import com.example.appqlchitieu.ui.auth.VerifyPurpose
 import com.example.appqlchitieu.utils.EmailSender
 import com.example.appqlchitieu.utils.SessionManager
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
-/**
- * Quản lý trạng thái người dùng hiện tại (đăng nhập / thông tin cá nhân).
- */
-class UserViewModel(private val repo: UserRepository, private val dataStore: UserDataStore, private val sessionManager: SessionManager) : ViewModel() {
+class UserViewModel(
+    private val repo: UserRepository,
+    private val dataStore: UserDataStore,
+    private val sessionManager: SessionManager
+) : ViewModel() {
 
-    val userName = dataStore.userName
-    val userEmail = dataStore.userEmail
+    var currentUser: User? by mutableStateOf(null)
+        private set
 
-    private val _currentUser = MutableLiveData<User?>(null)
-    val currentUser: LiveData<User?> = _currentUser
+    // OTP State
+    private var otpCode by mutableStateOf("")
+    private var otpEmail by mutableStateOf("")
+    private var otpPurpose by mutableStateOf<VerifyPurpose?>(null)
+    private var otpExpireTime by mutableStateOf(0L)
 
-    fun insert(user: User) = viewModelScope.launch { repo.insert(user) }
-
-    var otpCode by mutableStateOf("")
-    var otpEmail by mutableStateOf("")
-    var otpExpireTime by mutableStateOf(0L)
-
-    /** Đăng nhập → cập nhật currentUser nếu thành công */
-
-    fun login(context: Context, email: String, pass: String, onResult: (Boolean) -> Unit) {
+    // ===== LOGIN (ĐÃ SỬA LOGIC THÔNG BÁO) =====
+    // Callback trả về (Success, Message)
+    fun login(context: Context, email: String, password: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            val user = repo.login(email, pass)
+            // 1. Kiểm tra email có tồn tại không trước
+            val userByEmail = repo.getByEmail(email)
 
-            if (user != null) {
-                _currentUser.value = user
-                dataStore.saveUser(user.name, user.email)
-                onResult(true)
+            if (userByEmail == null) {
+                // Không tìm thấy email -> Báo chưa có tài khoản
+                onResult(false, "Tài khoản không tồn tại. Vui lòng đăng ký!")
             } else {
-                onResult(false)
+                // 2. Có email -> Kiểm tra mật khẩu (login)
+                val userLogin = repo.login(email, password)
+                if (userLogin != null) {
+                    // Đúng pass
+                    currentUser = userLogin
+                    dataStore.saveUser(userLogin.name, userLogin.email)
+                    sessionManager.saveLogin(userLogin.id)
+                    onResult(true, "Đăng nhập thành công")
+                } else {
+                    // Sai pass
+                    onResult(false, "Mật khẩu không đúng!")
+                }
             }
-        }
-    }
-
-    fun getUserByEmail(email: String, onResult: (User?) -> Unit) {
-        viewModelScope.launch {
-            val user = repo.getByEmail(email)
-            onResult(user)
         }
     }
 
@@ -58,9 +60,12 @@ class UserViewModel(private val repo: UserRepository, private val dataStore: Use
         viewModelScope.launch {
             val user = repo.getByEmail(email)
             if (user != null) {
-                _currentUser.value = user
-                dataStore.saveUser(user.name, user.email)
-                sessionManager.saveLogin(user.id) // KEY CHÍNH Ở ĐÂY
+                val verifiedUser = user.copy(isVerified = true)
+                repo.updateUser(verifiedUser)
+
+                currentUser = verifiedUser
+                dataStore.saveUser(verifiedUser.name, verifiedUser.email)
+                sessionManager.saveLogin(verifiedUser.id)
                 onResult(true)
             } else {
                 onResult(false)
@@ -68,77 +73,62 @@ class UserViewModel(private val repo: UserRepository, private val dataStore: Use
         }
     }
 
+    // ===== REGISTER =====
     fun register(user: User, onResult: (Boolean) -> Unit) = viewModelScope.launch {
-        val existed = repo.getByEmail(user.email) // repo phải có hàm này
+        val existed = repo.getByEmail(user.email)
+
         if (existed == null) {
-            repo.insert(user)
+            repo.insertUser(user)
             onResult(true)
         } else {
-            onResult(false)
-        }
-    }
-
-    /** Cập nhật lại thông tin user (đổi tên, avatar, …) */
-    fun update(user: User) = viewModelScope.launch { repo.update(user) }
-
-    /** Lấy user theo id (one-shot) và đẩy vào currentUser */
-    fun loadUser(id: Int) = viewModelScope.launch {
-        _currentUser.value = repo.getById(id)
-    }
-
-    /** Đăng xuất “nhẹ” trong bộ nhớ (tuỳ workflow của em) */
-    fun logout(onLoggedOut: () -> Unit = {}) {
-        viewModelScope.launch {
-            dataStore.clearUser()        // Xóa tên + email trong datastore
-            sessionManager.logout()      // Xóa flag đăng nhập
-            onLoggedOut()
-        }
-    }
-
-    fun generateOtp(email: String, callback: (Boolean) -> Unit) {
-        val otp = (100000..999999).random().toString()
-        otpCode = otp
-        otpEmail = email
-        otpExpireTime = System.currentTimeMillis() + 2 * 60 * 1000
-
-        EmailSender.sendOtp(email, otp) { success ->
-            // callback đã ở MainThread, nhưng để chắc chắn:
-            viewModelScope.launch(Dispatchers.Main) {
-                callback(success)
+            if (existed.isVerified) {
+                onResult(false)
+            } else {
+                val userToUpdate = user.copy(id = existed.id)
+                repo.updateUser(userToUpdate)
+                onResult(true)
             }
         }
     }
 
-    fun verifyOtp(input: String): Boolean {
-        val now = System.currentTimeMillis()
+    // ===== OTP & EMAIL =====
+    fun generateOtp(email: String, purpose: VerifyPurpose, callback: (Boolean) -> Unit) {
+        val code = Random.nextInt(100000, 999999).toString()
+        otpCode = code
+        otpEmail = email
+        otpPurpose = purpose
+        otpExpireTime = System.currentTimeMillis() + 5 * 60 * 1000L
 
-        return input == otpCode && now <= otpExpireTime
+        EmailSender.sendOtp(email, code) { success ->
+            callback(success)
+        }
     }
 
-    fun changePassword(
-        userId: Int,
-        oldPass: String,
-        newPass: String,
-        onResult: (Boolean, String) -> Unit
-    ) {
+    fun verifyOtp(email: String, inputOtp: String, purpose: VerifyPurpose): Boolean {
+        val now = System.currentTimeMillis()
+        return email == otpEmail && inputOtp == otpCode && purpose == otpPurpose && now <= otpExpireTime
+    }
+
+    // ===== RESET PASSWORD =====
+    fun changePassword(userId: Int, newPass: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             val user = repo.getUserById(userId)
-
             if (user == null) {
                 onResult(false, "Không tìm thấy người dùng")
                 return@launch
             }
-
-            if (user.password != oldPass) {
-                onResult(false, "Mật khẩu cũ không đúng")
-                return@launch
-            }
-
             repo.updatePassword(userId, newPass)
             onResult(true, "Đổi mật khẩu thành công")
         }
     }
 
+    // ===== GET USER BY EMAIL =====
+    fun getUserByEmail(email: String, onResult: (User?) -> Unit) {
+        viewModelScope.launch {
+            val user = repo.getByEmail(email)
+            onResult(user)
+        }
+    }
 }
 
 class UserViewModelFactory(
@@ -146,7 +136,6 @@ class UserViewModelFactory(
     private val dataStore: UserDataStore,
     private val sessionManager: SessionManager
 ) : ViewModelProvider.Factory {
-
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(UserViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
