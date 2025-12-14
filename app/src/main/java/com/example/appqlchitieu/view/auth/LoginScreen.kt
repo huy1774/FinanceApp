@@ -31,7 +31,6 @@ fun LoginScreen(
     onRegisterClick: () -> Unit,
     onLoginSuccess: () -> Unit
 ) {
-
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
@@ -41,31 +40,14 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF4980FF), Color(0xFF8AC9FF))
-                )
-            )
+            .background(Brush.verticalGradient(listOf(Color(0xFF4980FF), Color(0xFF8AC9FF))))
             .padding(20.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center)
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center)
         ) {
-
-            Text(
-                "Chào mừng trở lại!",
-                fontSize = 28.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Đăng nhập để tiếp tục",
-                fontSize = 16.sp,
-                color = Color.White.copy(.9f),
-                modifier = Modifier.padding(bottom = 30.dp)
-            )
+            Text("Chào mừng trở lại!", fontSize = 28.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            Text("Đăng nhập để tiếp tục", fontSize = 16.sp, color = Color.White.copy(0.9f), modifier = Modifier.padding(bottom = 30.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -74,104 +56,62 @@ fun LoginScreen(
                 elevation = CardDefaults.cardElevation(6.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-
-                    // EMAIL
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
                         label = { Text("Email") },
                         leadingIcon = { Icon(Icons.Default.Email, null) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 15.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 15.dp),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         enabled = !loading
                     )
-
-                    // PASSWORD
                     OutlinedTextField(
                         value = pass,
                         onValueChange = { pass = it },
                         label = { Text("Mật khẩu") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 25.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 25.dp),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         enabled = !loading
                     )
 
+                    TextButton(
+                        onClick = { nav.navigate("forgot_password") },
+                        modifier = Modifier.align(Alignment.End),
+                        enabled = !loading
+                    ) { Text("Quên mật khẩu?", color = Color(0xFF3C72FF)) }
+
                     Button(
                         onClick = {
-
-                            // ===== VALIDATION =====
-
                             val e = email.trim()
                             val p = pass
-
-                            if (e.isBlank()) {
-                                Toast.makeText(context, "Email không được để trống!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            if (!Patterns.EMAIL_ADDRESS.matcher(e).matches()) {
-                                Toast.makeText(context, "Email không đúng định dạng!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            if (p.isBlank()) {
-                                Toast.makeText(context, "Mật khẩu không được để trống!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            if (p.length < 6) {
-                                Toast.makeText(context, "Mật khẩu phải ≥ 6 ký tự!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            // ===== LOGIN =====
+                            if (e.isBlank()) { Toast.makeText(context, "Email không được để trống!", Toast.LENGTH_SHORT).show(); return@Button }
+                            if (!Patterns.EMAIL_ADDRESS.matcher(e).matches()) { Toast.makeText(context, "Email không đúng định dạng!", Toast.LENGTH_SHORT).show(); return@Button }
+                            if (p.isBlank()) { Toast.makeText(context, "Mật khẩu không được để trống!", Toast.LENGTH_SHORT).show(); return@Button }
+                            if (p.length < 6) { Toast.makeText(context, "Mật khẩu phải ≥ 6 ký tự!", Toast.LENGTH_SHORT).show(); return@Button }
 
                             loading = true
-                            vm.login(context, e, p) { success ->
+                            // Sửa: Nhận thêm message từ viewModel
+                            vm.login(context, e, p) { success, message ->
                                 loading = false
-
                                 if (success) {
-                                    val user = vm.currentUser.value
-                                    if (user != null) {
-                                        sessionManager.saveLogin(user.id)
-                                        onLoginSuccess()
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "lỗi hệ thống, vui lòng thử lại!",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
+                                    vm.currentUser?.let { sessionManager.saveLogin(it.id) }
+                                    onLoginSuccess()
                                 } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Sai email / mật khẩu",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    // Hiển thị thông báo cụ thể (Không tồn tại / Sai pass)
+                                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                 }
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C72FF)),
                         enabled = !loading
                     ) {
                         if (loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White)
                             Spacer(Modifier.width(10.dp))
                             Text("Đang đăng nhập...", fontSize = 16.sp, color = Color.White)
                         } else {
@@ -181,17 +121,9 @@ fun LoginScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
                         Text("Chưa có tài khoản?")
-                        TextButton(
-                            onClick = onRegisterClick,
-                            enabled = !loading
-                        ) {
-                            Text("Đăng ký ngay", fontWeight = FontWeight.Bold)
-                        }
+                        TextButton(onClick = onRegisterClick, enabled = !loading) { Text("Đăng ký ngay", fontWeight = FontWeight.Bold) }
                     }
                 }
             }

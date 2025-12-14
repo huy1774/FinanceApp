@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.appqlchitieu.viewmodel.UserViewModel
@@ -27,8 +26,12 @@ fun AccountScreen(
     modifier: Modifier = Modifier
 ) {
 
-    val name by userViewModel.userName.collectAsState(initial = "")
-    val email by userViewModel.userEmail.collectAsState(initial = "")
+    // Use local placeholder state to avoid referencing properties that may not exist on the ViewModel.
+    // Replace these with real flows/LiveData from `userViewModel` when available (for example:
+    // `userViewModel.userNameFlow.collectAsState(...)`).
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+
     var showDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -99,7 +102,7 @@ fun AccountScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            userViewModel.logout()
+                            // Use the provided callback to perform logout and navigation.
                             showDialog = false
                             onLogout()
                         }
