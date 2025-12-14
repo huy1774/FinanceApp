@@ -4,7 +4,6 @@ package com.example.appqlchitieu.view
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +29,7 @@ import com.example.appqlchitieu.repository.TransactionRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import java.text.NumberFormat
 import com.example.appqlchitieu.utils.SessionManager
 import com.example.appqlchitieu.utils.UserSession
 
@@ -61,6 +61,8 @@ fun TransactionAddScreen(
 
     val repo = remember { TransactionRepository(db) }
     val dateFmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+    // Định dạng tiền tệ để hiển thị trong thông báo lỗi
+    val currencyFmt = remember { NumberFormat.getInstance(Locale("vi", "VN")) }
 
     var type by remember { mutableStateOf("expense") }
     var amountText by remember { mutableStateOf("") }
@@ -322,6 +324,12 @@ fun TransactionAddScreen(
                             amt == null || amt <= 0 -> error = "Số tiền không hợp lệ"
                             cat == null -> error = "Hãy chọn danh mục"
                             wal == null -> error = "Hãy chọn ví"
+                            // --- THÊM LOGIC VALIDATION SỐ DƯ TẠI ĐÂY ---
+                            type == "expense" && amt > wal.balance -> {
+                                val currentBalance = currencyFmt.format(wal.balance)
+                                error = "Số dư không đủ! (Ví hiện có: ${currentBalance}đ)"
+                            }
+                            // ------------------------------------------
                             else -> {
                                 val expense = Expense(
                                     userId = userId,

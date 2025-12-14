@@ -10,7 +10,7 @@ import org.json.JSONObject
 
 object GeminiApi {
 
-    private const val API_KEY = "AIzaSyDtKlKkoEmHxVhcWKAVa94c5szGMwauEOo"
+    private const val API_KEY = "AIzaSyCUOxlcQBuOkMtyC_jSsuDE-bBen0B9Zbs"
     private val client = OkHttpClient()
 
     suspend fun ask(prompt: String): String = withContext(Dispatchers.IO) {
