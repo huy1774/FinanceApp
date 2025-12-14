@@ -25,12 +25,23 @@ fun AccountScreen(
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // --- SỬA LỖI TẠI ĐÂY ---
+    // Lấy dữ liệu user thực tế từ ViewModel
+    val currentUser = userViewModel.currentUser
 
-    // Use local placeholder state to avoid referencing properties that may not exist on the ViewModel.
-    // Replace these with real flows/LiveData from `userViewModel` when available (for example:
-    // `userViewModel.userNameFlow.collectAsState(...)`).
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    // Nếu currentUser null (ví dụ mới mở lại app), hiển thị placeholder, ngược lại hiển thị thông tin thật
+    val name = currentUser?.name ?: "Người dùng"
+    val email = currentUser?.email ?: "Đang tải..."
+
+    // Nếu User chưa được load (currentUser == null) nhưng đã đăng nhập,
+    // ta có thể kích hoạt reload lại từ DB (Option này tùy chọn, nhưng tốt cho trải nghiệm)
+    /*
+    LaunchedEffect(Unit) {
+         if (currentUser == null) {
+             // userViewModel.reloadUser() // Cần viết hàm này bên ViewModel nếu muốn load lại khi restart app
+         }
+    }
+    */
 
     var showDialog by remember { mutableStateOf(false) }
 
@@ -57,13 +68,15 @@ fun AccountScreen(
 
         Spacer(Modifier.height(8.dp))
 
+        // Hiển thị tên
         Text(
-            text = if (name.isEmpty()) "Tên người dùng" else name,
+            text = name,
             style = MaterialTheme.typography.titleLarge
         )
 
+        // Hiển thị email
         Text(
-            text = if (email.isEmpty()) "email@example.com" else email,
+            text = email,
             color = Color.Gray
         )
 
@@ -102,7 +115,6 @@ fun AccountScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            // Use the provided callback to perform logout and navigation.
                             showDialog = false
                             onLogout()
                         }
