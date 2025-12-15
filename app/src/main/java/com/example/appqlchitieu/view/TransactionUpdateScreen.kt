@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -17,14 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.appqlchitieu.database.DatabaseProvider
 import com.example.appqlchitieu.model.Category
-import com.example.appqlchitieu.model.Wallet
 import com.example.appqlchitieu.model.Expense
+import com.example.appqlchitieu.model.Wallet
+import com.example.appqlchitieu.repository.TransactionRepository // Import Repo
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -46,6 +47,10 @@ fun TransactionUpdateScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = remember { DatabaseProvider.getDatabase(context) }
+
+    // KHỞI TẠO REPO
+    val repo = remember { TransactionRepository(db) }
+
     val sessionManager = remember { SessionManager(context) }
     val userSession = remember { UserSession(sessionManager) }
     val userId = userSession.userIdOrNull()
@@ -66,42 +71,25 @@ fun TransactionUpdateScreen(
     var dateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // ⬇️ Danh mục
     val categories by db.categoryDao().getCategoriesByType(userId, type).collectAsState(initial = emptyList())
-
     var selectedCategory by remember { mutableStateOf<Category?>(null) }
     var expandCategory by remember { mutableStateOf(false) }
 
-    // ⬇️ Ví
-    val wallets by db.walletDao().getAllWallets(userId)
-        .collectAsState(initial = emptyList())
-
+    val wallets by db.walletDao().getAllWallets(userId).collectAsState(initial = emptyList())
     var selectedWallet by remember { mutableStateOf<Wallet?>(null) }
     var expandWallet by remember { mutableStateOf(false) }
 
-    // Load dữ liệu thật từ DB
     LaunchedEffect(expenseId) {
         val e = db.expenseDao().getExpenseById(userId, expenseId)
         loaded = e
 
         if (e != null) {
             title = e.title
-            amountText =
-                if (e.amount % 1.0 == 0.0)
-                    e.amount.toLong().toString()
-                else
-                    e.amount.toString()
-
+            amountText = if (e.amount % 1.0 == 0.0) e.amount.toLong().toString() else e.amount.toString()
             type = e.type
             dateMillis = e.date
-
-            selectedCategory = db.categoryDao()
-                .getCategoriesByType(userId, e.type)
-                .firstOrNull()
-                ?.firstOrNull { it.id == e.categoryId }
-
+            selectedCategory = db.categoryDao().getCategoriesByType(userId, e.type).firstOrNull()?.firstOrNull { it.id == e.categoryId }
             selectedWallet = db.walletDao().getWalletById(userId, e.walletId)
-
         } else {
             error = "Không tìm thấy giao dịch #$expenseId"
         }
@@ -116,58 +104,37 @@ fun TransactionUpdateScreen(
                     set(Calendar.YEAR, y)
                     set(Calendar.MONTH, m)
                     set(Calendar.DAY_OF_MONTH, d)
-                    set(Calendar.HOUR_OF_DAY, 12)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
+                    set(Calendar.HOUR_OF_DAY, 12); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                 }
                 dateMillis = picked.timeInMillis
             },
-            c.get(Calendar.YEAR),
-            c.get(Calendar.MONTH),
-            c.get(Calendar.DAY_OF_MONTH)
+            c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
         ).show()
     }
 
-    Scaffold(
-
-    ) { innerPadding ->
-
+    Scaffold { innerPadding ->
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB)))
-                )
+                .background(Brush.verticalGradient(listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))))
                 .padding(innerPadding)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            if (error != null) {
-                Text(error!!, color = MaterialTheme.colorScheme.error)
-            }
+            if (error != null) { Text(error!!, color = MaterialTheme.colorScheme.error) }
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { onBack?.invoke() }) {
-                    Icon(
-                        Icons.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color(0xFF1976D2)
-                    )
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF1976D2))
                 }
-                Text(
-                    "Sửa giao dịch",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                Text("Sửa giao dịch", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 8.dp))
             }
 
+            // ... (Giữ nguyên phần UI Chip Type, Input Amount, Combobox Category, Combobox Wallet, Input Title, DatePicker)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = type == "expense",
@@ -184,7 +151,6 @@ fun TransactionUpdateScreen(
             OutlinedTextField(
                 value = amountText,
                 onValueChange = { input ->
-                    // Chỉ cho số và dấu chấm
                     if (input.isEmpty() || input.matches(Regex("^\\d*(\\.\\d*)?$"))) {
                         amountText = input
                         error = null
@@ -196,35 +162,26 @@ fun TransactionUpdateScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = FieldShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = FieldFocusColor,
-                    unfocusedBorderColor = FieldBorderColor,
-                    focusedContainerColor = FieldContainerWhite,
-                    unfocusedContainerColor = FieldContainerWhite,
+                    focusedBorderColor = FieldFocusColor, unfocusedBorderColor = FieldBorderColor,
+                    focusedContainerColor = FieldContainerWhite, unfocusedContainerColor = FieldContainerWhite,
                     cursorColor = Color(0xFF1976D2)
                 )
             )
 
-            // ============================
-            // CATEGORY COMBOBOX
-            // ============================
+            // CATEGORY
             ExposedDropdownMenuBox(
                 expanded = expandCategory,
                 onExpandedChange = { expandCategory = !expandCategory }
             ) {
                 OutlinedTextField(
                     value = selectedCategory?.name ?: "Chọn danh mục",
-                    onValueChange = {},
-                    readOnly = true,
+                    onValueChange = {}, readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandCategory) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
                     shape = FieldShape,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = FieldFocusColor,
-                        unfocusedBorderColor = FieldBorderColor,
-                        focusedContainerColor = FieldContainerWhite,
-                        unfocusedContainerColor = FieldContainerWhite,
+                        focusedBorderColor = FieldFocusColor, unfocusedBorderColor = FieldBorderColor,
+                        focusedContainerColor = FieldContainerWhite, unfocusedContainerColor = FieldContainerWhite,
                         cursorColor = Color(0xFF1976D2)
                     )
                 )
@@ -235,36 +192,26 @@ fun TransactionUpdateScreen(
                     categories.forEach { cat ->
                         DropdownMenuItem(
                             text = { Text(cat.name) },
-                            onClick = {
-                                selectedCategory = cat
-                                expandCategory = false
-                            }
+                            onClick = { selectedCategory = cat; expandCategory = false }
                         )
                     }
                 }
             }
 
-            // ============================
-            // WALLET COMBOBOX
-            // ============================
+            // WALLET
             ExposedDropdownMenuBox(
                 expanded = expandWallet,
                 onExpandedChange = { expandWallet = !expandWallet }
             ) {
                 OutlinedTextField(
                     value = selectedWallet?.name ?: "Chọn ví",
-                    onValueChange = {},
-                    readOnly = true,
+                    onValueChange = {}, readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandWallet) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
                     shape = FieldShape,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = FieldFocusColor,
-                        unfocusedBorderColor = FieldBorderColor,
-                        focusedContainerColor = FieldContainerWhite,
-                        unfocusedContainerColor = FieldContainerWhite,
+                        focusedBorderColor = FieldFocusColor, unfocusedBorderColor = FieldBorderColor,
+                        focusedContainerColor = FieldContainerWhite, unfocusedContainerColor = FieldContainerWhite,
                         cursorColor = Color(0xFF1976D2)
                     )
                 )
@@ -275,48 +222,35 @@ fun TransactionUpdateScreen(
                     wallets.forEach { wal ->
                         DropdownMenuItem(
                             text = { Text(wal.name) },
-                            onClick = {
-                                selectedWallet = wal
-                                expandWallet = false
-                            }
+                            onClick = { selectedWallet = wal; expandWallet = false }
                         )
                     }
                 }
             }
 
             OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("Ghi chú") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = FieldShape,
+                value = title, onValueChange = { title = it },
+                label = { Text("Ghi chú") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(), shape = FieldShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = FieldFocusColor,
-                    unfocusedBorderColor = FieldBorderColor,
-                    focusedContainerColor = FieldContainerWhite,
-                    unfocusedContainerColor = FieldContainerWhite,
+                    focusedBorderColor = FieldFocusColor, unfocusedBorderColor = FieldBorderColor,
+                    focusedContainerColor = FieldContainerWhite, unfocusedContainerColor = FieldContainerWhite,
                     cursorColor = Color(0xFF1976D2)
                 )
             )
 
             OutlinedTextField(
-                value = dateFmt.format(Date(dateMillis)),
-                onValueChange = {},
-                label = { Text("Ngày") },
-                readOnly = true,
+                value = dateFmt.format(Date(dateMillis)), onValueChange = {},
+                label = { Text("Ngày") }, readOnly = true,
                 trailingIcon = {
                     IconButton(onClick = { openDatePicker() }) {
                         Icon(Icons.Filled.CalendarMonth, contentDescription = "Chọn ngày")
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                shape = FieldShape,
+                modifier = Modifier.fillMaxWidth(), shape = FieldShape,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = FieldFocusColor,
-                    unfocusedBorderColor = FieldBorderColor,
-                    focusedContainerColor = FieldContainerWhite,
-                    unfocusedContainerColor = FieldContainerWhite,
+                    focusedBorderColor = FieldFocusColor, unfocusedBorderColor = FieldBorderColor,
+                    focusedContainerColor = FieldContainerWhite, unfocusedContainerColor = FieldContainerWhite,
                     cursorColor = Color(0xFF1976D2)
                 )
             )
@@ -336,7 +270,7 @@ fun TransactionUpdateScreen(
                     }
 
                     scope.launch {
-                        val updated = old.copy(
+                        val newExpense = old.copy(
                             title = title.trim(),
                             amount = newAmount,
                             type = type,
@@ -344,17 +278,14 @@ fun TransactionUpdateScreen(
                             walletId = selectedWallet!!.id,
                             date = dateMillis
                         )
-                        db.expenseDao().updateExpense(updated)
+
+                        // SỬA Ở ĐÂY: GỌI REPO ĐỂ UPDATE
+                        repo.updateExpense(old, newExpense)
                         onSaved?.invoke()
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF388E3C),
-                    contentColor = Color.White
-                ),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C), contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Lưu thay đổi")

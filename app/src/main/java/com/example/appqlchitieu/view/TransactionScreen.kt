@@ -1,4 +1,3 @@
-
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.example.appqlchitieu.view
@@ -15,15 +14,16 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext // Import thêm
 import androidx.compose.ui.unit.dp
 import com.example.appqlchitieu.database.DatabaseProvider
 import com.example.appqlchitieu.model.Expense
+import com.example.appqlchitieu.repository.TransactionRepository // Import Repo
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -31,25 +31,20 @@ import java.util.*
 import com.example.appqlchitieu.utils.SessionManager
 import com.example.appqlchitieu.utils.UserSession
 
-// Đưa enum ra top-level & đổi tên để tránh đụng với material3.Tab
 enum class TxTab { ALL, EXPENSE, INCOME }
 
-/**
- * Danh sách giao dịch theo THÁNG:
- *  - Mũi tên ← → chuyển tháng
- *  - Tổng thu/chi của tháng
- *  - Bộ lọc: Tất cả | Chi | Thu
- *  - Thêm/Sửa/Xoá (dùng DB thật)
- */
 @Composable
 fun TransactionScreen(
     modifier: Modifier = Modifier,
     onAddClick: () -> Unit,
     onEdit: (expenseId: Int) -> Unit,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val db = remember { DatabaseProvider.getDatabase(context) }
+    // KHỞI TẠO REPO
+    val repo = remember { TransactionRepository(db) }
     val scope = rememberCoroutineScope()
+
     val sessionManager = remember { SessionManager(context) }
     val userSession = remember { UserSession(sessionManager) }
     val userId = userSession.userIdOrNull()
@@ -64,23 +59,19 @@ fun TransactionScreen(
     val nf = remember { NumberFormat.getInstance(Locale("vi", "VN")) }
     val dateFmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
-    // THÁNG/NĂM hiện tại
     val now = remember { Calendar.getInstance() }
     var year by rememberSaveable { mutableStateOf(now.get(Calendar.YEAR)) }
-    var month by rememberSaveable { mutableStateOf(now.get(Calendar.MONTH)) } // 0..11
+    var month by rememberSaveable { mutableStateOf(now.get(Calendar.MONTH)) }
 
-    // Mốc đầu/cuối tháng
     val (startMillis, endMillis) = remember(year, month) { monthBounds(year, month) }
     val monthLabel = remember(startMillis) {
         SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(Date(startMillis))
     }
 
-    // Lấy dữ liệu DB theo khoảng ngày
     val expensesThisMonth by remember(startMillis, endMillis) {
         db.expenseDao().getExpensesByDateRange(userId, startMillis, endMillis)
     }.collectAsState(initial = emptyList())
 
-    // Bộ lọc
     var tab by rememberSaveable { mutableStateOf(TxTab.ALL) }
     val filtered = remember(expensesThisMonth, tab) {
         val src = when (tab) {
@@ -91,9 +82,33 @@ fun TransactionScreen(
         src.sortedByDescending { it.date }
     }
 
-    // Tổng thu/chi
     val totalExpense = remember(expensesThisMonth) { expensesThisMonth.filter { it.type == "expense" }.sumOf { it.amount } }
     val totalIncome  = remember(expensesThisMonth) { expensesThisMonth.filter { it.type == "income" }.sumOf { it.amount } }
+
+    // Dialog xác nhận xóa (Optional but recommended)
+    var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+
+    if (expenseToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { expenseToDelete = null },
+            title = { Text("Xác nhận xoá") },
+            text = { Text("Bạn có chắc muốn xoá giao dịch này? Số dư ví sẽ được hoàn lại.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            // GỌI REPO ĐỂ XÓA VÀ CẬP NHẬT VÍ
+                            repo.deleteExpense(expenseToDelete!!)
+                            expenseToDelete = null
+                        }
+                    }
+                ) { Text("Xoá", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { expenseToDelete = null }) { Text("Huỷ") }
+            }
+        )
+    }
 
     Box(
         modifier = modifier
@@ -102,6 +117,8 @@ fun TransactionScreen(
             .padding(16.dp,16.dp,16.dp,0.dp)
     ) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+            // ... (Giữ nguyên phần UI Header, Card Tổng tiền, Tabs ...)
 
             // Thanh chọn tháng
             Card(
@@ -166,7 +183,6 @@ fun TransactionScreen(
                 )
             }
 
-            // Nút Thêm giao dịch
             Button(
                 onClick = onAddClick,
                 colors = ButtonDefaults.buttonColors(
@@ -179,7 +195,6 @@ fun TransactionScreen(
                 Text("Thêm giao dịch")
             }
 
-            // Danh sách
             if (filtered.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Chưa có giao dịch phù hợp", color = Color.Gray)
@@ -195,7 +210,8 @@ fun TransactionScreen(
                             expense = e,
                             dateText = dateFmt.format(Date(e.date)),
                             onEdit = { onEdit(e.id) },
-                            onDelete = { scope.launch { db.expenseDao().deleteExpense(e) } }
+                            // SỬA Ở ĐÂY: Gán vào biến tạm để hiện dialog xác nhận
+                            onDelete = { expenseToDelete = e }
                         )
                     }
                 }
@@ -204,6 +220,7 @@ fun TransactionScreen(
     }
 }
 
+// ... (Giữ nguyên TransactionItemCard và Helpers)
 @Composable
 private fun TransactionItemCard(
     expense: Expense,
@@ -239,7 +256,6 @@ private fun TransactionItemCard(
     }
 }
 
-/* ---------- Helpers ---------- */
 private fun monthBounds(year: Int, month0Based: Int): Pair<Long, Long> {
     val c1 = Calendar.getInstance().apply {
         set(Calendar.YEAR, year)
